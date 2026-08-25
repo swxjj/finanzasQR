@@ -6,7 +6,8 @@ import {
   QrCode, Camera, CameraOff, Upload, Download, Search, Users, UserCheck,
   FileSpreadsheet, CheckCircle2, AlertCircle, XCircle, Trash2, Volume2,
   VolumeX, BarChart3, GraduationCap, ScanLine, X, Clock, Percent,
-  Cloud, CloudOff, RefreshCw, LogOut, Lock, Eye, EyeOff, Wifi, WifiOff
+  Cloud, CloudOff, RefreshCw, LogOut, Lock, Eye, EyeOff, Wifi, WifiOff,
+  ChevronRight, ArrowLeft
 } from 'lucide-react'
 
 // ─── Config ────────────────────────────────────────────────────────
@@ -29,21 +30,21 @@ function beep(type) {
       osc.type = 'sine'
       osc.frequency.setValueAtTime(660, t)
       osc.frequency.setValueAtTime(880, t + 0.08)
-      gain.gain.setValueAtTime(0.18, t)
+      gain.gain.setValueAtTime(0.2, t)
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25)
       osc.start(t); osc.stop(t + 0.25)
     } else if (type === 'dup') {
       osc.type = 'triangle'
       osc.frequency.setValueAtTime(440, t)
       osc.frequency.setValueAtTime(340, t + 0.12)
-      gain.gain.setValueAtTime(0.2, t)
+      gain.gain.setValueAtTime(0.22, t)
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3)
       osc.start(t); osc.stop(t + 0.3)
     } else {
       osc.type = 'sawtooth'
       osc.frequency.setValueAtTime(220, t)
       osc.frequency.setValueAtTime(150, t + 0.15)
-      gain.gain.setValueAtTime(0.18, t)
+      gain.gain.setValueAtTime(0.2, t)
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35)
       osc.start(t); osc.stop(t + 0.35)
     }
@@ -111,7 +112,7 @@ async function flushQueue() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  APP
+//  MAIN APP
 // ═══════════════════════════════════════════════════════════════════
 export default function App() {
   const [role, setRole] = useState(() => load('qr_role', null))
@@ -121,7 +122,7 @@ export default function App() {
   const [roster, setRoster] = useState(() => load('qr_roster', []))
   const [records, setRecords] = useState(() => load('qr_records', []))
 
-  // UI
+  // UI state
   const [soundOn, setSoundOn] = useState(() => load('qr_sound', true))
   const [toast, setToast] = useState(null)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -135,7 +136,7 @@ export default function App() {
   useEffect(() => { save('qr_records', records) }, [records])
   useEffect(() => { save('qr_sound', soundOn) }, [soundOn])
 
-  // Online/offline detection
+  // Online / offline detector
   useEffect(() => {
     const on = () => { setIsOnline(true); flushQueue() }
     const off = () => setIsOnline(false)
@@ -163,10 +164,13 @@ export default function App() {
       const res = await fetch(`${SHEETS_URL}${sep}_t=${Date.now()}`, { cache: 'no-store' })
       const data = await res.json()
       if (data?.status === 'ok') {
-        if (data.padron?.length > 0) setRoster(data.padron)
+        if (data.padron && Array.isArray(data.padron) && data.padron.length > 0) {
+          setRoster(data.padron)
+        }
         if (Array.isArray(data.records)) {
           const clean = data.records.map(r => ({
             ...r,
+            dni: String(r.dni || '').replace(/\D/g, '').trim(),
             date: normalizeDate(r.date)
           }))
           setRecords(clean)
@@ -215,34 +219,45 @@ export default function App() {
     } finally { setIsSyncing(false) }
   }, [showToast])
 
-  // Logout
   const logout = () => { setAuthed(false); setRole(null) }
 
-  // ── Role selection ──────────────────────────────────────────────
+  // ── Role selection screen ───────────────────────────────────────
   if (!role) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-5 text-slate-100">
         <div className="w-full max-w-sm space-y-6 text-center animate-slide-up">
-          <div className="mx-auto h-20 w-20 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-2xl shadow-indigo-600/40">
-            <QrCode className="h-10 w-10 text-white" />
+          <div className="mx-auto h-20 w-20 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shadow-2xl shadow-blue-500/10">
+            <QrCode className="h-10 w-10 text-blue-400" />
           </div>
           <div>
             <h1 className="text-3xl font-extrabold text-white tracking-tight">QR Asist</h1>
-            <p className="text-sm text-slate-400 mt-1">Control de asistencia con QR</p>
+            <p className="text-sm text-slate-400 mt-1.5">Control de asistencia ágil para cátedras</p>
           </div>
-          <div className="grid gap-4 pt-2">
-            <button onClick={() => setRole('profesor')}
-              className="flex items-center justify-center gap-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 px-6 py-4 text-base font-bold text-white shadow-lg shadow-indigo-600/30 transition-all active:scale-[0.97]">
-              <GraduationCap className="h-6 w-6" /> Soy Profesor/a
+          <div className="grid gap-3 pt-2">
+            <button
+              onClick={() => setRole('profesor')}
+              className="min-h-[52px] flex items-center justify-between rounded-2xl bg-blue-600 hover:bg-blue-500 px-5 py-3.5 text-base font-bold text-white shadow-lg shadow-blue-600/25 transition-all active:scale-[0.98]"
+              aria-label="Acceder como Profesor o Docente"
+            >
+              <span className="flex items-center gap-3">
+                <GraduationCap className="h-6 w-6 text-blue-100" /> Soy Profesor/a
+              </span>
+              <ChevronRight className="h-5 w-5 text-blue-200" />
             </button>
-            <button onClick={() => setRole('alumno')}
-              className="flex items-center justify-center gap-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-6 py-4 text-base font-bold text-white transition-all active:scale-[0.97]">
-              <QrCode className="h-6 w-6 text-indigo-400" /> Soy Alumno/a
+            <button
+              onClick={() => setRole('alumno')}
+              className="min-h-[52px] flex items-center justify-between rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 px-5 py-3.5 text-base font-bold text-slate-200 hover:text-white transition-all active:scale-[0.98]"
+              aria-label="Acceder como Alumno para generar credencial QR"
+            >
+              <span className="flex items-center gap-3">
+                <QrCode className="h-6 w-6 text-blue-400" /> Soy Alumno/a
+              </span>
+              <ChevronRight className="h-5 w-5 text-slate-500" />
             </button>
           </div>
           {!SHEETS_URL && (
-            <p className="text-[10px] text-amber-500/80 flex items-center justify-center gap-1">
-              <CloudOff className="h-3 w-3" /> Modo offline — Google Sheets no configurado
+            <p className="text-xs text-amber-400/90 flex items-center justify-center gap-1.5 pt-2">
+              <CloudOff className="h-3.5 w-3.5 shrink-0" /> Modo offline — Google Sheets no configurado
             </p>
           )}
         </div>
@@ -252,7 +267,7 @@ export default function App() {
 
   if (role === 'alumno') return <AlumnoView onBack={() => setRole(null)} />
 
-  // Professor needs auth
+  // Professor authentication guard
   if (!authed) {
     return <LoginScreen onSuccess={() => setAuthed(true)} onBack={() => setRole(null)} />
   }
@@ -295,53 +310,79 @@ function LoginScreen({ onSuccess, onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-5 text-slate-100">
       <div className={`w-full max-w-sm animate-slide-up ${shake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-md">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-7 shadow-2xl backdrop-blur-md">
           <div className="text-center mb-6">
-            <div className="mx-auto h-16 w-16 rounded-2xl bg-indigo-600/20 flex items-center justify-center mb-4 ring-1 ring-indigo-500/30">
-              <Lock className="h-8 w-8 text-indigo-400" />
+            <div className="mx-auto h-16 w-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-3.5">
+              <Lock className="h-8 w-8 text-blue-400" />
             </div>
             <h2 className="text-xl font-extrabold text-white">Acceso Docente</h2>
-            <p className="text-xs text-slate-400 mt-1">Ingresá tus credenciales para tomar asistencia</p>
+            <p className="text-xs text-slate-400 mt-1">Ingresá tus credenciales de cátedra</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Usuario</label>
-              <input type="text" value={user} onChange={e => { setUser(e.target.value); setError('') }}
-                placeholder="Usuario" autoComplete="username" autoFocus
-                className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+              <label htmlFor="login-user" className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Usuario
+              </label>
+              <input
+                id="login-user"
+                type="text"
+                value={user}
+                onChange={e => { setUser(e.target.value); setError('') }}
+                placeholder="Usuario docente"
+                autoComplete="username"
+                autoFocus
+                className="w-full min-h-[44px] rounded-xl border border-slate-700 bg-slate-800/80 px-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Contraseña</label>
+              <label htmlFor="login-pass" className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Contraseña
+              </label>
               <div className="relative">
-                <input type={showPass ? 'text' : 'password'} value={pass} onChange={e => { setPass(e.target.value); setError('') }}
-                  placeholder="••••••••" autoComplete="current-password"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 pr-12 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
-                <button type="button" onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">
+                <input
+                  id="login-pass"
+                  type={showPass ? 'text' : 'password'}
+                  value={pass}
+                  onChange={e => { setPass(e.target.value); setError('') }}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className="w-full min-h-[44px] rounded-xl border border-slate-700 bg-slate-800/80 px-4 pr-12 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  aria-label={showPass ? 'Ocultar contraseña' : 'Ver contraseña'}
+                  className="min-h-[44px] min-w-[44px] absolute right-0 top-0 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                >
                   {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2 animate-fade-in">
-                <XCircle className="h-4 w-4 shrink-0" /> {error}
+              <div className="flex items-center gap-2 text-xs text-rose-300 bg-rose-950/60 border border-rose-500/30 rounded-xl px-3.5 py-2.5 animate-fade-in">
+                <XCircle className="h-4 w-4 shrink-0 text-rose-400" /> {error}
               </div>
             )}
 
-            <button type="submit"
-              className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-600/30 transition-all active:scale-[0.97]">
-              Ingresar
+            <button
+              type="submit"
+              className="w-full min-h-[46px] rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all active:scale-[0.98]"
+            >
+              Ingresar al panel
             </button>
           </form>
 
-          <button onClick={onBack}
-            className="w-full mt-4 text-xs text-slate-500 hover:text-slate-300 text-center py-2 transition-colors">
-            ← Volver al inicio
+          <button
+            onClick={onBack}
+            className="w-full min-h-[44px] mt-3 text-xs text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition-colors"
+            aria-label="Volver a la selección de rol"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Volver al inicio
           </button>
         </div>
       </div>
@@ -372,7 +413,7 @@ function AlumnoView({ onBack }) {
       ctx2d.fillRect(0, 0, size, size)
       ctx2d.drawImage(img, 0, 0, size, size)
       const a = document.createElement('a')
-      a.download = `QR_${dni || 'codigo'}.png`
+      a.download = `QR_DNI_${dni || 'alumno'}.png`
       a.href = canvas.toDataURL('image/png')
       a.click()
     }
@@ -380,41 +421,62 @@ function AlumnoView({ onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col">
-      <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl px-4 py-3 flex items-center justify-between">
-        <button onClick={onBack} className="text-xs text-slate-400 hover:text-white">← Volver</button>
+    <div className="min-h-screen bg-slate-950 flex flex-col text-slate-100">
+      <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl px-4 py-2.5 flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="min-h-[44px] px-2 text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors"
+          aria-label="Volver a la pantalla de inicio"
+        >
+          <ArrowLeft className="h-4 w-4" /> Volver
+        </button>
         <h1 className="text-sm font-bold text-white flex items-center gap-2">
-          <QrCode className="h-4 w-4 text-indigo-400" /> Mi Código QR
+          <QrCode className="h-4 w-4 text-blue-400" /> Mi Credencial QR
         </h1>
-        <div className="w-14" />
+        <div className="w-16" />
       </header>
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm space-y-6 animate-slide-up">
+
+      <main className="flex-1 flex items-center justify-center p-5">
+        <div className="w-full max-w-sm space-y-5 animate-slide-up">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl backdrop-blur-md space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Tu número de DNI</label>
-              <input type="text" inputMode="numeric" value={dni}
+              <label htmlFor="alumno-dni" className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Ingresá tu número de DNI
+              </label>
+              <input
+                id="alumno-dni"
+                type="text"
+                inputMode="numeric"
+                value={dni}
                 onChange={e => setDni(e.target.value.replace(/\D/g, ''))}
-                placeholder="Ej: 45123456" maxLength={10}
-                className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-lg font-mono text-white placeholder-slate-500 text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                placeholder="Ej: 44102931"
+                maxLength={10}
+                className="w-full min-h-[48px] rounded-xl border border-slate-700 bg-slate-800 px-4 text-lg font-mono text-white placeholder-slate-500 text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
+
             {dni.length >= 7 ? (
               <>
-                <div ref={qrRef} className="flex justify-center">
-                  <div className="bg-white p-5 rounded-2xl shadow-lg">
-                    <QRCodeSVG value={dni} size={220} level="H" includeMargin />
+                <div ref={qrRef} className="flex justify-center py-2">
+                  <div className="bg-white p-4 rounded-2xl shadow-xl">
+                    <QRCodeSVG value={dni} size={210} level="H" includeMargin />
                   </div>
                 </div>
-                <p className="text-center text-xs text-slate-400">DNI: <span className="font-mono font-bold text-white">{dni}</span></p>
-                <button onClick={handleDownload}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-600/30 transition-all active:scale-[0.97]">
-                  <Download className="h-4 w-4" /> Descargar QR como imagen
+                <div className="text-center text-xs text-slate-400">
+                  DNI del alumno: <strong className="font-mono text-white text-sm">{dni}</strong>
+                </div>
+                <button
+                  onClick={handleDownload}
+                  className="w-full min-h-[48px] flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all active:scale-[0.98]"
+                  aria-label="Descargar código QR en formato imagen PNG"
+                >
+                  <Download className="h-4 w-4" /> Guardar imagen en el teléfono
                 </button>
               </>
             ) : (
-              <div className="py-10 text-center text-slate-500 text-xs">
-                <QrCode className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                Ingresá tu DNI (mínimo 7 dígitos) para generar el código QR.
+              <div className="py-8 text-center text-slate-400 text-xs">
+                <QrCode className="h-12 w-12 mx-auto mb-2.5 opacity-30 text-slate-400" />
+                Ingresá tu DNI (mínimo 7 dígitos) para generar el código QR de asistencia.
               </div>
             )}
           </div>
@@ -436,7 +498,7 @@ function ProfesorView({
 }) {
   const [tab, setTab] = useState('scan')
 
-  // Stable refs for registerDni
+  // Stable refs for attendance registering
   const recordsRef = useRef(records)
   const rosterRef = useRef(roster)
   const soundRef = useRef(soundOn)
@@ -444,7 +506,7 @@ function ProfesorView({
   useEffect(() => { rosterRef.current = roster }, [roster])
   useEffect(() => { soundRef.current = soundOn }, [soundOn])
 
-  // CSV Upload
+  // CSV Roster Upload
   const handleCSV = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -468,7 +530,7 @@ function ProfesorView({
     e.target.value = ''
   }
 
-  // Register attendance (stable — never recreated)
+  // Register attendance (stable callback)
   const registerDni = useCallback((rawDni) => {
     const dni = rawDni.replace(/\D/g, '').trim()
     if (!dni) return
@@ -502,34 +564,34 @@ function ProfesorView({
   const todayCount = useMemo(() => records.filter(r => normalizeDate(r.date) === today).length, [records, today])
 
   const tabs = [
-    { id: 'scan', label: 'Escanear', icon: Camera },
-    { id: 'report', label: 'Reporte', icon: BarChart3 },
+    { id: 'scan', label: 'Escanear Asistencia', icon: Camera },
+    { id: 'report', label: 'Matriz y Reportes', icon: BarChart3 },
   ]
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col text-slate-100">
       {/* Header */}
-      <header className="print:hidden sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl">
+      <header className="print-hidden sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl">
         <div className="max-w-4xl mx-auto px-4 flex items-center justify-between h-14">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-md">
-              <QrCode className="h-4 w-4 text-white" />
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shadow-md">
+              <QrCode className="h-4 w-4 text-blue-400" />
             </div>
-            <span className="font-extrabold text-white hidden sm:inline">QR Asist</span>
+            <span className="font-extrabold text-white hidden sm:inline tracking-tight">QR Asist</span>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {/* Connection indicator */}
-            <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold ${
+          <div className="flex items-center gap-1">
+            {/* Connection status badge */}
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${
               !SHEETS_URL
-                ? 'text-slate-500 bg-slate-900 border border-slate-800'
+                ? 'text-slate-400 bg-slate-900 border border-slate-800'
                 : isOnline
-                  ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
-                  : 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                  ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-500/30'
+                  : 'text-amber-300 bg-amber-950/60 border border-amber-500/30'
             }`}>
-              {!SHEETS_URL ? <CloudOff className="h-3.5 w-3.5" /> :
-               isOnline ? <Cloud className={`h-3.5 w-3.5 ${isSyncing ? 'animate-pulse' : ''}`} /> :
-                          <WifiOff className="h-3.5 w-3.5" />}
+              {!SHEETS_URL ? <CloudOff className="h-3.5 w-3.5 text-slate-500" /> :
+               isOnline ? <Cloud className={`h-3.5 w-3.5 text-emerald-400 ${isSyncing ? 'animate-pulse' : ''}`} /> :
+                          <WifiOff className="h-3.5 w-3.5 text-amber-400" />}
               <span className="hidden sm:inline">
                 {!SHEETS_URL ? 'Offline' : isOnline ? (isSyncing ? 'Sincronizando...' : 'Sheets ✓') : 'Sin red'}
               </span>
@@ -537,35 +599,55 @@ function ProfesorView({
 
             {/* Sync button */}
             {SHEETS_URL && (
-              <button onClick={() => onPull(false)} disabled={isSyncing} title="Sincronizar con Google Sheets"
-                className="p-2 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors">
+              <button
+                onClick={() => onPull(false)}
+                disabled={isSyncing}
+                aria-label="Sincronizar asistencias con Google Sheets"
+                title="Sincronizar con Google Sheets"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-400 hover:bg-slate-900 transition-colors"
+              >
                 <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
               </button>
             )}
 
             {/* Sound toggle */}
-            <button onClick={() => setSoundOn(!soundOn)} title={soundOn ? 'Silenciar' : 'Activar sonido'}
-              className={`p-2 rounded-lg transition-colors ${soundOn ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500'}`}>
+            <button
+              onClick={() => setSoundOn(!soundOn)}
+              aria-label={soundOn ? 'Silenciar sonidos' : 'Activar sonidos de confirmación'}
+              title={soundOn ? 'Silenciar' : 'Activar sonido'}
+              className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-colors ${
+                soundOn ? 'text-blue-200 bg-blue-950/80 border border-blue-500/30' : 'text-white/80 hover:text-white hover:bg-slate-800/80'
+              }`}
+            >
               {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </button>
 
-            {/* Logout */}
-            <button onClick={onLogout} title="Cerrar sesión"
-              className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors">
+            {/* Logout button */}
+            <button
+              onClick={onLogout}
+              aria-label="Cerrar sesión de docente"
+              title="Cerrar sesión"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-white/80 hover:text-rose-200 hover:bg-rose-950/80 transition-colors"
+            >
               <LogOut className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Tab bar */}
-        <div className="max-w-4xl mx-auto px-4 flex gap-1 pb-2">
+        {/* Tab navigation */}
+        <div className="max-w-4xl mx-auto px-4 flex gap-1.5 pb-2">
           {tabs.map(t => {
             const Icon = t.icon
             return (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${
-                  tab === t.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-400 hover:text-white bg-slate-900/50'
-                }`}>
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`flex-1 min-h-[40px] flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${
+                  tab === t.id
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
+                    : 'text-slate-400 hover:text-white bg-slate-900/60'
+                }`}
+              >
                 <Icon className="h-4 w-4" />{t.label}
               </button>
             )
@@ -573,54 +655,64 @@ function ProfesorView({
         </div>
       </header>
 
-      {/* Toast */}
+      {/* Floating Toast Notification */}
       {toast && (
-        <div className="print:hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md animate-fade-in">
-          <div className={`flex items-center gap-3 rounded-xl px-4 py-3 shadow-xl border text-sm font-medium ${
-            toast.type === 'ok'  ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-200' :
-            toast.type === 'dup' ? 'bg-amber-950/80 border-amber-500/40 text-amber-200' :
-                                   'bg-rose-950/80 border-rose-500/40 text-rose-200'
+        <div className="print-hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md animate-fade-in">
+          <div className={`flex items-center gap-3 rounded-xl px-4 py-3 shadow-2xl border text-sm font-semibold ${
+            toast.type === 'ok'  ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-100' :
+            toast.type === 'dup' ? 'bg-amber-950/90 border-amber-500/40 text-amber-100' :
+                                   'bg-rose-950/90 border-rose-500/40 text-rose-100'
           }`}>
             {toast.type === 'ok'  && <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />}
             {toast.type === 'dup' && <AlertCircle  className="h-5 w-5 text-amber-400 shrink-0" />}
             {toast.type === 'error' && <XCircle     className="h-5 w-5 text-rose-400 shrink-0" />}
             <span className="flex-1">{toast.text}</span>
-            <button onClick={() => setToast(null)} className="shrink-0 opacity-60 hover:opacity-100"><X className="h-4 w-4" /></button>
+            <button
+              onClick={() => setToast(null)}
+              aria-label="Cerrar notificación"
+              className="min-h-[36px] min-w-[36px] flex items-center justify-center opacity-70 hover:opacity-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </div>
       )}
 
-      {/* Main */}
-      <main className="flex-1 max-w-4xl w-full mx-auto p-4 space-y-5">
-        {/* Roster bar */}
-        <div className="print:hidden rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-xl backdrop-blur-md">
+      {/* Main Content */}
+      <main className="flex-1 max-w-4xl w-full mx-auto p-4 space-y-4">
+        {/* Roster quick stats & CSV action */}
+        <div className="print-hidden rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-xl backdrop-blur-md">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs">
-              <Users className="h-4 w-4 text-indigo-400" />
+            <div className="flex items-center gap-2.5 text-xs">
+              <Users className="h-4 w-4 text-blue-400" />
               <span className="text-slate-300 font-semibold">Padrón:</span>
-              <span className="font-bold text-white">{roster.length}</span>
-              <span className="text-slate-500">alumnos</span>
+              <span className="font-bold text-white text-sm">{roster.length}</span>
+              <span className="text-slate-400">alumnos</span>
               {roster.length > 0 && (
                 <>
                   <span className="text-slate-700">|</span>
                   <UserCheck className="h-4 w-4 text-emerald-400" />
-                  <span className="font-bold text-emerald-400">{todayCount}</span>
-                  <span className="text-slate-500">hoy</span>
+                  <span className="font-bold text-emerald-400 text-sm">{todayCount}</span>
+                  <span className="text-slate-400">hoy</span>
                 </>
               )}
             </div>
             <div className="flex items-center gap-2">
               {SHEETS_URL && (
-                <button onClick={() => onPull(false)} disabled={isSyncing}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 transition-colors">
+                <button
+                  onClick={() => onPull(false)}
+                  disabled={isSyncing}
+                  aria-label="Sincronizar ahora"
+                  className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3.5 py-2 text-xs font-bold text-slate-200 transition-colors"
+                >
                   <RefreshCw className={`h-3.5 w-3.5 text-sky-400 ${isSyncing ? 'animate-spin' : ''}`} />
                   Sincronizar
                 </button>
               )}
-              <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition-all active:scale-[0.97]">
+              <label className="cursor-pointer min-h-[40px] inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-blue-600/25 transition-all active:scale-[0.98]">
                 <Upload className="h-4 w-4" />
                 {roster.length ? 'Subir CSV' : 'Cargar Padrón CSV'}
-                <input type="file" accept=".csv" onChange={handleCSV} className="hidden" />
+                <input type="file" accept=".csv" onChange={handleCSV} className="hidden" aria-label="Subir archivo CSV de padrón" />
               </label>
             </div>
           </div>
@@ -629,14 +721,25 @@ function ProfesorView({
         {roster.length === 0 ? (
           <EmptyRosterHint hasSheets={Boolean(SHEETS_URL)} onPull={() => onPull(false)} />
         ) : tab === 'scan' ? (
-          <ScanTab roster={roster} records={records} registerDni={registerDni} todayCount={todayCount} totalRoster={roster.length} />
+          <ScanTab
+            roster={roster}
+            records={records}
+            registerDni={registerDni}
+            todayCount={todayCount}
+            totalRoster={roster.length}
+          />
         ) : (
-          <ReportTab roster={roster} records={records} setRecords={setRecords} showToast={showToast} />
+          <ReportTab
+            roster={roster}
+            records={records}
+            setRecords={setRecords}
+            showToast={showToast}
+          />
         )}
       </main>
 
-      <footer className="print:hidden border-t border-slate-900 py-3 text-center text-[11px] text-slate-600">
-        QR Asist • Google Sheets + React + Tailwind v4
+      <footer className="print-hidden border-t border-slate-900 py-3.5 text-center text-xs text-slate-400">
+        QR Asist • Sistema de asistencia universitaria sincronizado con Google Sheets
       </footer>
     </div>
   )
@@ -645,21 +748,23 @@ function ProfesorView({
 // ── Empty roster placeholder ─────────────────────────────────────
 function EmptyRosterHint({ hasSheets, onPull }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-10 text-center space-y-4 animate-slide-up">
-      <FileSpreadsheet className="h-12 w-12 mx-auto text-slate-600" />
-      <h3 className="text-base font-bold text-slate-300">Padrón no cargado</h3>
-      <p className="text-xs text-slate-500 max-w-sm mx-auto">
+    <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/50 p-8 text-center space-y-4 animate-slide-up">
+      <FileSpreadsheet className="h-12 w-12 mx-auto text-slate-500" />
+      <h3 className="text-base font-bold text-slate-200">Padrón no cargado</h3>
+      <p className="text-xs text-slate-400 max-w-sm mx-auto">
         {hasSheets
-          ? 'Cargá el padrón subiendo un CSV o sincronizando desde Google Sheets.'
-          : 'Subí un archivo CSV con columnas DNI, Libreta, Nombre_Apellido.'}
+          ? 'Descargá la lista de alumnos desde tu Google Sheet o subí un archivo CSV.'
+          : 'Subí un archivo CSV con las columnas DNI, Libreta, Nombre_Apellido.'}
       </p>
       {hasSheets && (
-        <button onClick={onPull}
-          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition-all">
+        <button
+          onClick={onPull}
+          className="min-h-[44px] inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-600/25 transition-all"
+        >
           <Cloud className="h-4 w-4" /> Descargar desde Google Sheets
         </button>
       )}
-      <div className="inline-block rounded-lg bg-slate-800 border border-slate-700 px-4 py-2 text-[11px] text-slate-400 font-mono text-left">
+      <div className="inline-block rounded-lg bg-slate-800/80 border border-slate-700 px-4 py-2.5 text-xs text-slate-300 font-mono text-left">
         DNI,Libreta,Nombre_Apellido<br/>
         44102931,LU-2024-01,Agustina Belén Morales<br/>
         43890123,LU-2024-02,Benjamín Ignacio Castro
@@ -682,7 +787,7 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
 
   useEffect(() => { return () => { stopScanner() } }, [])
 
-  // Boot camera when container becomes ready
+  // Camera boot sequence
   useEffect(() => {
     if (!containerReady) return
     let cancelled = false
@@ -720,7 +825,7 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
         if (!cancelled) setScanning(true)
       } catch (err) {
         console.error(err)
-        if (!cancelled) { setContainerReady(false); alert('No se pudo acceder a la cámara. Verificá los permisos.') }
+        if (!cancelled) { setContainerReady(false); alert('No se pudo acceder a la cámara. Verificá los permisos del navegador.') }
       }
     }
     const t = setTimeout(boot, 120)
@@ -737,7 +842,13 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
     setScanning(false); setContainerReady(false)
   }
 
-  const handleManual = (e) => { e.preventDefault(); if (manualDni.trim()) { registerDni(manualDni); setManualDni('') } }
+  const handleManual = (e) => {
+    e.preventDefault()
+    if (manualDni.trim()) {
+      registerDni(manualDni)
+      setManualDni('')
+    }
+  }
 
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return []
@@ -750,100 +861,132 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
   const pct = totalRoster > 0 ? Math.round((todayCount / totalRoster) * 100) : 0
 
   return (
-    <div className="space-y-5 animate-slide-up">
-      {/* Counters */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 text-center shadow-xl">
-          <div className="text-2xl font-extrabold text-indigo-400">{totalRoster}</div>
-          <div className="text-[11px] text-slate-500 mt-1">En padrón</div>
+    <div className="space-y-4 animate-slide-up">
+      {/* Stat counters */}
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-3.5 text-center shadow-xl">
+          <div className="text-2xl font-extrabold text-blue-400">{totalRoster}</div>
+          <div className="text-xs text-slate-400 mt-0.5">En padrón</div>
         </div>
-        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-center shadow-xl">
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-center shadow-xl">
           <div className="text-2xl font-extrabold text-emerald-400">{todayCount}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Presentes hoy</div>
+          <div className="text-xs text-emerald-300/80 mt-0.5">Presentes hoy</div>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 text-center shadow-xl">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-3.5 text-center shadow-xl">
           <div className="text-2xl font-extrabold text-white">{pct}%</div>
-          <div className="text-[11px] text-slate-500 mt-1">Asistencia</div>
+          <div className="text-xs text-slate-400 mt-0.5">Asistencia</div>
         </div>
       </div>
 
-      {/* Scanner */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-xl backdrop-blur-md">
+      {/* QR Scanner */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 sm:p-5 shadow-xl backdrop-blur-md">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <ScanLine className="h-4 w-4 text-indigo-400" /> Escáner QR
+            <ScanLine className="h-4 w-4 text-blue-400" /> Escáner de Cámara
           </h2>
           {scanning && (
-            <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold">
+            <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" /> Escaneando
             </span>
           )}
         </div>
         <div className="relative rounded-xl bg-slate-950 border border-slate-800 min-h-[260px] flex items-center justify-center overflow-hidden">
-          <div id={containerId}
+          <div
+            id={containerId}
             className={`w-full ${(scanning || containerReady) ? 'min-h-[260px]' : 'absolute inset-0 opacity-0 pointer-events-none'}`}
-            style={(scanning || containerReady) ? undefined : { height: '1px', overflow: 'hidden' }} />
+            style={(scanning || containerReady) ? undefined : { height: '1px', overflow: 'hidden' }}
+          />
           {!scanning && !containerReady && (
             <div className="flex flex-col items-center p-8 text-center space-y-4">
               <div className="rounded-full bg-slate-800/80 p-4 ring-1 ring-slate-700/50">
-                <Camera className="h-10 w-10 text-slate-500" />
+                <Camera className="h-10 w-10 text-slate-400" />
               </div>
-              <button onClick={startScanner}
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-600/30 transition-all active:scale-[0.97] animate-pulse-ring">
+              <button
+                onClick={startScanner}
+                className="min-h-[44px] inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all active:scale-[0.98] animate-pulse-ring"
+                aria-label="Activar cámara para escanear código QR"
+              >
                 <Camera className="h-4 w-4" /> Iniciar Cámara
               </button>
             </div>
           )}
           {scanning && (
-            <button onClick={stopScanner}
-              className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-lg bg-red-500/80 hover:bg-red-600 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-md shadow-md">
+            <button
+              onClick={stopScanner}
+              className="min-h-[44px] absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur-md shadow-md"
+              aria-label="Detener escáner de cámara"
+            >
               <CameraOff className="h-3.5 w-3.5" /> Detener
             </button>
           )}
         </div>
       </div>
 
-      {/* Manual input */}
+      {/* Manual DNI registration */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-xl backdrop-blur-md">
-        <h3 className="text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
-          <UserCheck className="h-4 w-4 text-indigo-400" /> Ingreso manual por DNI
+        <h3 className="text-xs font-bold text-slate-200 mb-2 flex items-center gap-1.5">
+          <UserCheck className="h-4 w-4 text-blue-400" /> Ingreso manual por DNI
         </h3>
         <form onSubmit={handleManual} className="flex gap-2">
-          <input type="text" inputMode="numeric" value={manualDni} onChange={e => setManualDni(e.target.value.replace(/\D/g, ''))}
-            placeholder="Nro. de DNI..." maxLength={10}
-            className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-mono text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-          <button type="submit" className="rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-5 py-2.5 text-sm font-bold text-white transition-all">
+          <label htmlFor="manual-dni-input" className="sr-only">Número de DNI para registro manual</label>
+          <input
+            id="manual-dni-input"
+            type="text"
+            inputMode="numeric"
+            value={manualDni}
+            onChange={e => setManualDni(e.target.value.replace(/\D/g, ''))}
+            placeholder="Nro. de DNI..."
+            maxLength={10}
+            className="flex-1 min-h-[44px] rounded-xl border border-slate-700 bg-slate-800 px-4 text-sm font-mono text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            type="submit"
+            className="min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-5 text-sm font-bold text-white transition-all active:scale-[0.98]"
+            aria-label="Registrar asistencia manual"
+          >
             Registrar
           </button>
         </form>
       </div>
 
-      {/* Search */}
+      {/* Student search in roster */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-xl backdrop-blur-md">
-        <h3 className="text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
-          <Search className="h-4 w-4 text-indigo-400" /> Buscar alumno
+        <h3 className="text-xs font-bold text-slate-200 mb-2 flex items-center gap-1.5">
+          <Search className="h-4 w-4 text-blue-400" /> Buscar alumno en padrón
         </h3>
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Nombre o DNI..."
-            className="w-full rounded-xl border border-slate-700 bg-slate-800 pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <label htmlFor="search-roster-input" className="sr-only">Buscar alumno por nombre o DNI</label>
+          <input
+            id="search-roster-input"
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Buscar por nombre o DNI..."
+            className="w-full min-h-[44px] rounded-xl border border-slate-700 bg-slate-800 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
         {searchResults.length > 0 && (
-          <div className="mt-2 space-y-1 max-h-[200px] overflow-y-auto">
+          <div className="mt-2 space-y-1 max-h-[220px] overflow-y-auto">
             {searchResults.map(s => {
-              const present = records.some(r => r.dni === s.dni && r.date === today)
+              const cleanDni = String(s.dni).replace(/\D/g, '').trim()
+              const present = records.some(r => String(r.dni).replace(/\D/g, '').trim() === cleanDni && normalizeDate(r.date) === today)
               return (
-                <div key={s.dni} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/50 border border-slate-800 hover:border-slate-700 transition-colors">
+                <div key={s.dni} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/60 border border-slate-800 hover:border-slate-700 transition-colors">
                   <div>
                     <span className="text-xs font-semibold text-white">{s.nombre}</span>
-                    <span className="text-[11px] text-slate-500 ml-2 font-mono">DNI: {s.dni}</span>
+                    <span className="text-xs text-slate-400 ml-2 font-mono">DNI: {s.dni}</span>
                   </div>
                   {present ? (
-                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">PRESENTE</span>
+                    <span className="text-xs font-bold text-emerald-300 bg-emerald-950/70 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+                      PRESENTE
+                    </span>
                   ) : (
-                    <button onClick={() => registerDni(s.dni)}
-                      className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded hover:bg-indigo-500/20 transition-colors">
+                    <button
+                      onClick={() => registerDni(s.dni)}
+                      className="min-h-[36px] text-xs font-bold text-blue-300 bg-blue-950/70 border border-blue-500/30 px-3 py-1 rounded-lg hover:bg-blue-900/50 transition-colors"
+                      aria-label={`Registrar a ${s.nombre}`}
+                    >
                       REGISTRAR
                     </button>
                   )}
@@ -854,20 +997,20 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
         )}
       </div>
 
-      {/* Today's list */}
+      {/* Today attendance log */}
       {todayList.length > 0 && (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-xl backdrop-blur-md">
           <h3 className="text-xs font-bold text-white mb-3 flex items-center gap-2">
             <Clock className="h-4 w-4 text-emerald-400" /> Asistencias de hoy ({todayList.length})
           </h3>
-          <div className="space-y-1.5 max-h-[250px] overflow-y-auto pr-1">
+          <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1">
             {todayList.slice().reverse().map((r, i) => (
-              <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/40 border border-slate-800">
+              <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/50 border border-slate-800">
                 <div>
                   <span className="text-xs font-semibold text-white">{r.nombre}</span>
-                  <span className="text-[11px] text-slate-500 ml-2 font-mono">{r.dni}</span>
+                  <span className="text-xs text-slate-400 ml-2 font-mono">{r.dni}</span>
                 </div>
-                <span className="text-[11px] text-slate-400 font-mono">{r.time}</span>
+                <span className="text-xs text-slate-300 font-mono">{r.time}</span>
               </div>
             ))}
           </div>
@@ -905,107 +1048,134 @@ function ReportTab({ roster, records, setRecords, showToast }) {
   const filtered = useMemo(() => {
     if (!search.trim()) return matrix
     const q = search.toLowerCase()
-    return matrix.filter(s => s.nombre.toLowerCase().includes(q) || s.dni.includes(q))
+    return matrix.filter(s => s.nombre.toLowerCase().includes(q) || String(s.dni).includes(q))
   }, [matrix, search])
 
   const handleExport = () => {
-    if (!allDates.length) { showToast('error', 'No hay datos para exportar.'); return }
-    const header = ['DNI', 'Libreta', 'Nombre_Apellido', ...allDates, 'Total', 'Porcentaje']
-    const rows = matrix.map(s => [s.dni, s.libreta || '', s.nombre, ...allDates.map(d => s.perDate[d] ? '1' : '0'), String(s.total), `${s.pct}%`])
+    if (!allDates.length) { showToast('error', 'No hay datos de asistencias para exportar.'); return }
+    const header = ['DNI', 'Libreta', 'Nombre_Apellido', ...allDates, 'Total_Clases', 'Porcentaje_Presentismo']
+    const rows = matrix.map(s => [
+      s.dni,
+      s.libreta || '',
+      s.nombre,
+      ...allDates.map(d => s.perDate[d] ? '1' : '0'),
+      String(s.total),
+      `${s.pct}%`
+    ])
     const csv = Papa.unparse({ fields: header, data: rows })
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `presentismo_${todayISO()}.csv`; a.click()
+    a.href = url; a.download = `matriz_presentismo_${todayISO()}.csv`; a.click()
     URL.revokeObjectURL(url)
     showToast('ok', `Exportado: ${roster.length} alumnos × ${allDates.length} fechas.`)
   }
 
   return (
-    <div className="space-y-5 animate-slide-up">
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-xl backdrop-blur-md">
+    <div className="space-y-4 animate-slide-up">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 sm:p-5 shadow-xl backdrop-blur-md">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-indigo-400" /> Matriz de Presentismo
+              <BarChart3 className="h-5 w-5 text-blue-400" /> Matriz Consolidada de Presentismo
             </h2>
-            <p className="text-[11px] text-slate-500">
-              {allDates.length} clase{allDates.length !== 1 ? 's' : ''} • {roster.length} alumnos •
-              % = (clases asistidas / total clases) × 100
+            <p className="text-xs text-slate-400 mt-0.5">
+              {allDates.length} clase{allDates.length !== 1 ? 's' : ''} registradas • {roster.length} alumnos en padrón
             </p>
           </div>
-          <button onClick={handleExport}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition-all active:scale-[0.97]">
+          <button
+            onClick={handleExport}
+            className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-blue-600/25 transition-all active:scale-[0.98]"
+            aria-label="Descargar matriz en archivo CSV"
+          >
             <Download className="h-4 w-4" /> Exportar CSV
           </button>
         </div>
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <label htmlFor="filter-matrix-input" className="sr-only">Filtrar matriz por nombre o DNI</label>
+          <input
+            id="filter-matrix-input"
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Filtrar por nombre o DNI..."
-            className="w-full rounded-xl border border-slate-700 bg-slate-800 pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+            className="w-full min-h-[44px] rounded-xl border border-slate-700 bg-slate-800 pl-10 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
       </div>
 
+      {/* Summary KPI cards */}
       {allDates.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center text-xs">
           <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-3">
             <div className="text-lg font-extrabold text-white">{roster.length}</div>
-            <div className="text-slate-500">Alumnos</div>
+            <div className="text-slate-400">Alumnos</div>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-3">
-            <div className="text-lg font-extrabold text-indigo-400">{allDates.length}</div>
-            <div className="text-slate-500">Clases</div>
+            <div className="text-lg font-extrabold text-blue-400">{allDates.length}</div>
+            <div className="text-slate-400">Clases</div>
           </div>
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
             <div className="text-lg font-extrabold text-emerald-400">
               {roster.length > 0 ? Math.round(matrix.reduce((a, s) => a + s.pct, 0) / roster.length) : 0}%
             </div>
-            <div className="text-slate-400">Promedio gral.</div>
+            <div className="text-emerald-300/80">Promedio general</div>
           </div>
-          <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
             <div className="text-lg font-extrabold text-rose-400">{matrix.filter(s => s.pct < 60).length}</div>
-            <div className="text-slate-400">&lt;60% asist.</div>
+            <div className="text-rose-300/80">&lt;60% asist.</div>
           </div>
         </div>
       )}
 
+      {/* Data Table */}
       {allDates.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-10 text-center text-slate-500 text-xs">
-          No hay asistencias registradas. Escaneá códigos QR para generar datos.
+        <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/50 p-8 text-center text-slate-400 text-xs">
+          No hay asistencias registradas todavía. Escaneá códigos QR para generar datos en el reporte.
         </div>
       ) : (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950/60 text-slate-400 border-b border-slate-800 font-semibold uppercase tracking-wider">
+              <thead className="bg-slate-950/80 text-slate-300 border-b border-slate-800 font-semibold uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-3 sticky left-0 bg-slate-950/90 z-10">Alumno</th>
+                  <th className="py-3 px-3.5 sticky left-0 bg-slate-950 z-10">Alumno</th>
                   <th className="py-3 px-3">DNI</th>
-                  {allDates.map(d => <th key={d} className="py-3 px-2 text-center whitespace-nowrap">{d.slice(5)}</th>)}
+                  {allDates.map(d => (
+                    <th key={d} className="py-3 px-2 text-center whitespace-nowrap">
+                      {d.slice(5)}
+                    </th>
+                  ))}
                   <th className="py-3 px-3 text-center">Total</th>
                   <th className="py-3 px-3 text-center">%</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {filtered.map(s => (
-                  <tr key={s.dni} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 px-3 font-semibold text-white whitespace-nowrap sticky left-0 bg-slate-900/90 z-10">{s.nombre}</td>
-                    <td className="py-2.5 px-3 font-mono text-slate-400">{s.dni}</td>
+                  <tr key={s.dni} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="py-2.5 px-3.5 font-semibold text-white whitespace-nowrap sticky left-0 bg-slate-900/95 z-10">
+                      {s.nombre}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-slate-300">{s.dni}</td>
                     {allDates.map(d => (
                       <td key={d} className="py-2.5 px-2 text-center">
-                        {s.perDate[d]
-                          ? <span className="inline-block h-5 w-5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold leading-5">✓</span>
-                          : <span className="inline-block h-5 w-5 rounded bg-slate-800 text-slate-600 text-[10px] font-bold leading-5">—</span>}
+                        {s.perDate[d] ? (
+                          <span className="inline-block h-5 w-5 rounded bg-emerald-500/20 text-emerald-300 text-xs font-bold leading-5">✓</span>
+                        ) : (
+                          <span className="inline-block h-5 w-5 rounded bg-slate-800 text-slate-500 text-xs font-bold leading-5">—</span>
+                        )}
                       </td>
                     ))}
                     <td className="py-2.5 px-3 text-center font-bold text-white">{s.total}</td>
                     <td className="py-2.5 px-3 text-center">
-                      <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        s.pct >= 80 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                        s.pct >= 60 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                                      'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                      }`}><Percent className="h-3 w-3" />{s.pct}</span>
+                      <span className={`inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        s.pct >= 80 ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30' :
+                        s.pct >= 60 ? 'bg-amber-950/80 text-amber-300 border border-amber-500/30' :
+                                      'bg-rose-950/80 text-rose-300 border border-rose-500/30'
+                      }`}>
+                        <Percent className="h-3 w-3" />{s.pct}
+                      </span>
                     </td>
                   </tr>
                 ))}

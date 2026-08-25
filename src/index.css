@@ -1,28 +1,38 @@
 @import "tailwindcss";
 
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(-8px); }
+  from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(16px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(99,102,241,0); }
-  100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.45); }
+  70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
 }
 
-.animate-fade-in { animation: fade-in 0.3s ease-out; }
-.animate-slide-up { animation: slide-up 0.35s ease-out; }
-.animate-pulse-ring { animation: pulse-ring 1.5s infinite; }
+.animate-fade-in { animation: fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-pulse-ring { animation: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
-/* Hide scrollbar on mobile tab bar */
+/* Accessibility: respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Hide scrollbar on mobile */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 @media print {
-  body { background: white !important; }
-  .print\\:hidden { display: none !important; }
+  body { background: white !important; color: black !important; }
+  .print-hidden { display: none !important; }
 }
