@@ -55,8 +55,36 @@ const load = (key, fb) => { try { const v = localStorage.getItem(key); return v 
 const save = (key, v) => localStorage.setItem(key, JSON.stringify(v))
 
 // ─── Date helpers ──────────────────────────────────────────────────
-const todayISO = () => new Date().toISOString().split('T')[0]
+const todayISO = () => {
+  const d = new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 const nowTime = () => new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+
+// Normalizes any date format from Google Sheets to YYYY-MM-DD
+const normalizeDate = (d) => {
+  if (!d) return ''
+  const str = String(d).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
+  if (str.includes('T')) return str.split('T')[0]
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)) {
+    const parts = str.split('/')
+    return `${parts[2].split(' ')[0]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
+  }
+  try {
+    const parsed = new Date(str)
+    if (!isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear()
+      const m = String(parsed.getMonth() + 1).padStart(2, '0')
+      const day = String(parsed.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
+  } catch {}
+  return str
+}
 
 // ─── Offline queue for failed POSTs ───────────────────────────────
 const QUEUE_KEY = 'qr_offline_queue'
@@ -124,7 +152,10 @@ export default function App() {
 
   // ── Pull from Sheets ──────────────────────────────────────────
   const pullFromSheets = useCallback(async (silent = false) => {
-    if (!SHEETS_URL) return
+    if (!SHEETS_URL) {
+      if (!silent) showToast('error', 'Falta configurar VITE_SHEETS_API_URL en Vercel.')
+      return
+    }
     setIsSyncing(true)
     try {
       await flushQueue()
@@ -132,7 +163,13 @@ export default function App() {
       const data = await res.json()
       if (data?.status === 'ok') {
         if (data.padron?.length > 0) setRoster(data.padron)
-        if (Array.isArray(data.records)) setRecords(data.records)
+        if (Array.isArray(data.records)) {
+          const clean = data.records.map(r => ({
+            ...r,
+            date: normalizeDate(r.date)
+          }))
+          setRecords(clean)
+        }
         if (!silent) showToast('ok', `☁️ Sincronizado: ${data.padron?.length || 0} alumnos, ${data.records?.length || 0} asistencias.`)
       }
     } catch (err) {
