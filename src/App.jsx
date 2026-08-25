@@ -253,31 +253,43 @@ function ProfesorView({ roster, setRoster, records, setRecords, soundOn, setSoun
     }
   }
 
-  // ── Attendance logic ──────────────────────────────────────────
+  // ── Stable refs so registerDni never changes identity ────────
+  const recordsRef = useRef(records)
+  const rosterRef = useRef(roster)
+  const soundRef = useRef(soundOn)
+  useEffect(() => { recordsRef.current = records }, [records])
+  useEffect(() => { rosterRef.current = roster }, [roster])
+  useEffect(() => { soundRef.current = soundOn }, [soundOn])
+
+  // ── Attendance logic (stable callback — never recreated) ──────
   const registerDni = useCallback((rawDni, source = 'QR') => {
     const dni = rawDni.replace(/\D/g, '').trim()
     if (!dni) return
 
-    const student = roster.find(s => s.dni === dni)
+    const currentRoster = rosterRef.current
+    const currentRecords = recordsRef.current
+    const sound = soundRef.current
+
+    const student = currentRoster.find(s => s.dni === dni)
     if (!student) {
-      if (soundOn) beep('err')
+      if (sound) beep('err')
       showToast('error', `DNI ${dni} no está en el padrón.`)
       return
     }
 
     const today = todayISO()
-    const dup = records.find(r => r.dni === dni && r.date === today)
+    const dup = currentRecords.find(r => r.dni === dni && r.date === today)
     if (dup) {
-      if (soundOn) beep('dup')
+      if (sound) beep('dup')
       showToast('dup', `${student.nombre} ya registró asistencia hoy (${dup.time}).`)
       return
     }
 
     const newRec = { dni, nombre: student.nombre, date: today, time: nowTime() }
     setRecords(prev => [...prev, newRec])
-    if (soundOn) beep('ok')
+    if (sound) beep('ok')
     showToast('ok', `✓ ${student.nombre} — Presente`)
-  }, [roster, records, soundOn, showToast, setRecords])
+  }, [showToast, setRecords]) // only stable deps — never changes
 
   // ── Today count ───────────────────────────────────────────────
   const today = todayISO()
