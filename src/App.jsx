@@ -432,22 +432,54 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
       if (scannerRef.current) await stopScanner()
       const qr = new Html5Qrcode(containerId)
       scannerRef.current = qr
-      await qr.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
-        (text) => {
-          if (processingRef.current) return
-          processingRef.current = true
-          const cleaned = text.replace(/\D/g, '').trim()
-          registerDni(cleaned, 'QR')
-          setTimeout(() => { processingRef.current = false }, 2500)
-        },
-        () => {}
-      )
+
+      // Responsive qrbox that adapts to the viewport (critical for iOS)
+      const qrboxFunction = (viewfinderWidth, viewfinderHeight) => {
+        const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7
+        const side = Math.max(150, Math.min(size, 280))
+        return { width: Math.floor(side), height: Math.floor(side) }
+      }
+
+      // Config without aspectRatio (breaks on iOS WebKit)
+      const scanConfig = { fps: 10, qrbox: qrboxFunction }
+
+      const onSuccess = (text) => {
+        if (processingRef.current) return
+        processingRef.current = true
+        const cleaned = text.replace(/\D/g, '').trim()
+        registerDni(cleaned, 'QR')
+        setTimeout(() => { processingRef.current = false }, 2500)
+      }
+
+      // Try back camera first, fallback to front camera on failure (iOS compat)
+      try {
+        await qr.start({ facingMode: 'environment' }, scanConfig, onSuccess, () => {})
+      } catch (_backErr) {
+        console.warn('Back camera failed, trying front camera:', _backErr)
+        try {
+          await qr.start({ facingMode: 'user' }, scanConfig, onSuccess, () => {})
+        } catch (frontErr) {
+          // Last resort: try first available camera by ID
+          const cameras = await Html5Qrcode.getCameras()
+          if (cameras && cameras.length > 0) {
+            await qr.start(cameras[0].id, scanConfig, onSuccess, () => {})
+          } else {
+            throw frontErr
+          }
+        }
+      }
+
+      // iOS needs playsinline attribute on the video element
+      const videoEl = document.querySelector(`#${containerId} video`)
+      if (videoEl) {
+        videoEl.setAttribute('playsinline', 'true')
+        videoEl.setAttribute('webkit-playsinline', 'true')
+      }
+
       setScanning(true)
     } catch (err) {
-      console.error(err)
-      alert('No se pudo acceder a la cámara. Verifica los permisos del navegador.')
+      console.error('Camera error:', err)
+      alert('No se pudo acceder a la cámara. Verificá los permisos en Ajustes > Safari/Chrome > Cámara.')
     }
   }
 
