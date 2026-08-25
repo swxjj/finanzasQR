@@ -1,5 +1,5 @@
 // ===================================================================
-// CÓDIGO PARA GOOGLE APPS SCRIPT (QR Asist - Matriz en Tiempo Real)
+// CÓDIGO PARA GOOGLE APPS SCRIPT (QR Asist - Matriz con Fórmulas Vivas)
 // ===================================================================
 // INSTRUCCIONES:
 // 1. Abrí tu Google Sheet.
@@ -13,14 +13,16 @@ function doGet(e) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const data = obtenerDatosCompletos(ss);
 
-  // Actualiza la matriz por si hubo cambios manuales
-  construirMatriz(ss, data.padron, data.records);
+  // Asegurar que la matriz de fórmulas esté armada
+  armarMatrizConFormulas(ss);
 
-  return ContentService.createTextOutput(JSON.stringify({
+  const output = ContentService.createTextOutput(JSON.stringify({
     status: 'ok',
     padron: data.padron,
     records: data.records
-  })).setMimeType(ContentService.MimeType.JSON);
+  }));
+  output.setMimeType(ContentService.MimeType.JSON);
+  return output;
 }
 
 function doPost(e) {
@@ -47,9 +49,8 @@ function doPost(e) {
         String(data.nombre || '')
       ]);
 
-      // Actualizar la matriz inmediatamente en el mismo momento del escaneo
-      const fullData = obtenerDatosCompletos(ss);
-      construirMatriz(ss, fullData.padron, fullData.records);
+      // Re-verificar que las fechas en la cabecera de la matriz estén al día
+      armarMatrizConFormulas(ss);
 
       return ContentService.createTextOutput(JSON.stringify({ status: 'ok', message: 'Registrado' }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -67,8 +68,7 @@ function doPost(e) {
         );
       }
 
-      const fullData = obtenerDatosCompletos(ss);
-      construirMatriz(ss, fullData.padron, fullData.records);
+      armarMatrizConFormulas(ss);
 
       return ContentService.createTextOutput(JSON.stringify({ status: 'ok', count: data.padron.length }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -135,91 +135,122 @@ function obtenerDatosCompletos(ss) {
   return { padron, records };
 }
 
-// ── Constructor y formateador de la Matriz_Presentismo ─────────────
-function construirMatriz(ss, padron, asistencias) {
+// ── Constructor de la Matriz con FÓRMULAS VIVAS de Google Sheets ───
+function armarMatrizConFormulas(ss) {
   try {
     let sheetMatriz = ss.getSheetByName('Matriz_Presentismo');
     if (!sheetMatriz) {
       sheetMatriz = ss.insertSheet('Matriz_Presentismo');
     }
 
-    // Fechas únicas ordenadas
+    let sheetPadron = ss.getSheetByName('Padron');
+    let sheetAsist = ss.getSheetByName('Asistencias');
+    if (!sheetPadron) return;
+
+    const numAlumnos = Math.max(0, sheetPadron.getLastRow() - 1);
+    if (numAlumnos === 0) return;
+
+    // Obtener fechas únicas desde la hoja Asistencias
+    const tz = Session.getScriptTimeZone();
     const fechasSet = {};
-    asistencias.forEach(a => {
-      if (a.date) fechasSet[a.date] = true;
-    });
+    if (sheetAsist && sheetAsist.getLastRow() > 1) {
+      const aData = sheetAsist.getRange(2, 1, sheetAsist.getLastRow() - 1, 1).getValues();
+      aData.forEach(r => {
+        if (r[0]) {
+          let f = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd') : String(r[0]).trim();
+          if (f.includes('T')) f = f.split('T')[0];
+          if (f) fechasSet[f] = true;
+        }
+      });
+    }
     const fechas = Object.keys(fechasSet).sort();
 
-    const headers = ['DNI', 'Libreta', 'Nombre y Apellido', ...fechas, 'Total Clases Asistidas', '% Presentismo'];
-    
-    // Mapeo: { [dni]: { [fecha]: true } }
-    const asistMap = {};
-    asistencias.forEach(a => {
-      const d = String(a.dni).trim();
-      if (!asistMap[d]) asistMap[d] = {};
-      asistMap[d][a.date] = true;
-    });
+    // Encabezados
+    const headers = ['DNI', 'Libreta', 'Nombre y Apellido', ...fechas, 'Total Asistencias', '% Presentismo'];
+    const totalCols = headers.length;
 
-    const rows = padron.map(s => {
-      const d = String(s.dni).trim();
-      let total = 0;
-      const fechasCols = fechas.map(f => {
-        if (asistMap[d] && asistMap[d][f]) {
-          total++;
-          return '✓';
-        }
-        return '—';
+    // Construcción de la matriz con FÓRMULAS NATIVAS
+    const formulaRows = [];
+    for (let i = 2; i <= numAlumnos + 1; i++) {
+      const row = [];
+      // Columnas A, B, C enlazadas directamente con Padron
+      row.push(`=TO_TEXT(Padron!A${i})`);
+      row.push(`=TO_TEXT(Padron!B${i})`);
+      row.push(`=Padron!C${i}`);
+
+      // Fórmulas para cada fecha: =SI(CONTAR.SI.CONJUNTO(Asistencias!$C:$C; TO_TEXT($A2); Asistencias!$A:$A; D$1)>0; "✓"; "—")
+      fechas.forEach((f, idx) => {
+        const colLet = getColLetter(4 + idx);
+        row.push(`=IF(COUNTIFS(Asistencias!$C:$C, TO_TEXT($A${i}), Asistencias!$A:$A, ${colLet}$1)>0, "✓", "—")`);
       });
 
-      const pct = fechas.length > 0 ? Math.round((total / fechas.length) * 100) + '%' : '0%';
+      // Total y % Presentismo
+      if (fechas.length > 0) {
+        const firstDateCol = getColLetter(4);
+        const lastDateCol = getColLetter(3 + fechas.length);
+        // Total = COUNTIF(D2:Z2, "✓")
+        row.push(`=COUNTIF(${firstDateCol}${i}:${lastDateCol}${i}, "✓")`);
+        // % = COUNTIF / total fechas
+        row.push(`=IF(COUNTA($${firstDateCol}$1:$${lastDateCol}$1)>0, COUNTIF(${firstDateCol}${i}:${lastDateCol}${i}, "✓")/COUNTA($${firstDateCol}$1:$${lastDateCol}$1), 0)`);
+      } else {
+        row.push(0);
+        row.push(0);
+      }
 
-      return [
-        String(s.dni),
-        String(s.libreta || ''),
-        String(s.nombre || ''),
-        ...fechasCols,
-        total,
-        pct
-      ];
-    });
+      formulaRows.push(row);
+    }
 
     sheetMatriz.clearContents();
-    sheetMatriz.clearFormats();
 
-    sheetMatriz.getRange(1, 1, 1, headers.length).setValues([headers]);
-    sheetMatriz.getRange(1, 1, 1, headers.length)
+    // Escribir cabecera
+    sheetMatriz.getRange(1, 1, 1, totalCols).setValues([headers]);
+    sheetMatriz.getRange(1, 1, 1, totalCols)
       .setBackground('#1e1b4b')
       .setFontColor('#ffffff')
       .setFontWeight('bold')
       .setHorizontalAlignment('center');
 
-    if (rows.length > 0) {
-      sheetMatriz.getRange(2, 1, rows.length, headers.length).setValues(rows);
-      sheetMatriz.getRange(2, 1, rows.length, 2).setHorizontalAlignment('center');
-      sheetMatriz.getRange(2, 3, rows.length, 1).setHorizontalAlignment('left').setFontWeight('bold');
-      if (fechas.length > 0) {
-        sheetMatriz.getRange(2, 4, rows.length, fechas.length).setHorizontalAlignment('center');
-      }
-      sheetMatriz.getRange(2, headers.length - 1, rows.length, 2).setHorizontalAlignment('center').setFontWeight('bold');
-    }
+    // Escribir fórmulas en todas las celdas
+    sheetMatriz.getRange(2, 1, formulaRows.length, totalCols).setFormulas(formulaRows);
 
-    sheetMatriz.autoResizeColumns(1, headers.length);
+    // Formatear columna de porcentaje
+    const pctColIdx = totalCols;
+    sheetMatriz.getRange(2, pctColIdx, formulaRows.length, 1).setNumberFormat('0.0%');
+
+    // Alineaciones
+    sheetMatriz.getRange(2, 1, formulaRows.length, 2).setHorizontalAlignment('center');
+    sheetMatriz.getRange(2, 3, formulaRows.length, 1).setHorizontalAlignment('left').setFontWeight('bold');
+    if (fechas.length > 0) {
+      sheetMatriz.getRange(2, 4, formulaRows.length, fechas.length).setHorizontalAlignment('center');
+    }
+    sheetMatriz.getRange(2, totalCols - 1, formulaRows.length, 2).setHorizontalAlignment('center').setFontWeight('bold');
+
+    sheetMatriz.autoResizeColumns(1, totalCols);
   } catch (err) {
-    Logger.log('Error construyendo matriz: ' + err.toString());
+    Logger.log('Error armando matriz con fórmulas: ' + err.toString());
   }
 }
 
-// ── Menú manual en Google Sheets ──────────────────────────────────
+function getColLetter(col) {
+  let temp, letter = '';
+  while (col > 0) {
+    temp = (col - 1) % 26;
+    letter = String.fromCharCode(temp + 65) + letter;
+    col = (col - temp - 1) / 26;
+  }
+  return letter;
+}
+
+// ── Menú en Google Sheets ─────────────────────────────────────────
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📋 QR Asist')
-    .addItem('🔄 Actualizar Matriz de Presentismo', 'menuActualizarMatriz')
+    .addItem('🔄 Actualizar Fórmulas de la Matriz', 'armarMatrizConFormulasMenu')
     .addToUi();
 }
 
-function menuActualizarMatriz() {
+function armarMatrizConFormulasMenu() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const data = obtenerDatosCompletos(ss);
-  construirMatriz(ss, data.padron, data.records);
-  SpreadsheetApp.getUi().alert('✓ Matriz de presentismo actualizada.');
+  armarMatrizConFormulas(ss);
+  SpreadsheetApp.getUi().alert('✓ Matriz con fórmulas actualizada con éxito.');
 }

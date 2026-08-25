@@ -159,7 +159,8 @@ export default function App() {
     setIsSyncing(true)
     try {
       await flushQueue()
-      const res = await fetch(SHEETS_URL)
+      const sep = SHEETS_URL.includes('?') ? '&' : '?'
+      const res = await fetch(`${SHEETS_URL}${sep}_t=${Date.now()}`, { cache: 'no-store' })
       const data = await res.json()
       if (data?.status === 'ok') {
         if (data.padron?.length > 0) setRoster(data.padron)
