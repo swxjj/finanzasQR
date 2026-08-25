@@ -416,6 +416,7 @@ function EmptyRosterHint() {
 // ═══════════════════════════════════════════════════════════════════
 function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
   const [scanning, setScanning] = useState(false)
+  const [containerReady, setContainerReady] = useState(false)
   const [manualDni, setManualDni] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const scannerRef = useRef(null)
@@ -427,60 +428,88 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
     return () => { stopScanner() }
   }, [])
 
-  const startScanner = async () => {
-    try {
-      if (scannerRef.current) await stopScanner()
-      const qr = new Html5Qrcode(containerId)
-      scannerRef.current = qr
+  // When containerReady flips to true, actually start the camera
+  useEffect(() => {
+    if (!containerReady) return
+    let cancelled = false
 
-      // Responsive qrbox that adapts to the viewport (critical for iOS)
-      const qrboxFunction = (viewfinderWidth, viewfinderHeight) => {
-        const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7
-        const side = Math.max(150, Math.min(size, 280))
-        return { width: Math.floor(side), height: Math.floor(side) }
-      }
-
-      // Config without aspectRatio (breaks on iOS WebKit)
-      const scanConfig = { fps: 10, qrbox: qrboxFunction }
-
-      const onSuccess = (text) => {
-        if (processingRef.current) return
-        processingRef.current = true
-        const cleaned = text.replace(/\D/g, '').trim()
-        registerDni(cleaned, 'QR')
-        setTimeout(() => { processingRef.current = false }, 2500)
-      }
-
-      // Try back camera first, fallback to front camera on failure (iOS compat)
+    const boot = async () => {
       try {
-        await qr.start({ facingMode: 'environment' }, scanConfig, onSuccess, () => {})
-      } catch (_backErr) {
-        console.warn('Back camera failed, trying front camera:', _backErr)
-        try {
-          await qr.start({ facingMode: 'user' }, scanConfig, onSuccess, () => {})
-        } catch (frontErr) {
-          // Last resort: try first available camera by ID
-          const cameras = await Html5Qrcode.getCameras()
-          if (cameras && cameras.length > 0) {
-            await qr.start(cameras[0].id, scanConfig, onSuccess, () => {})
-          } else {
-            throw frontErr
+        const qr = new Html5Qrcode(containerId)
+        scannerRef.current = qr
+
+        // Responsive qrbox that adapts to the viewport (critical for iOS)
+        const qrboxFunction = (vw, vh) => {
+          const side = Math.floor(Math.max(150, Math.min(Math.min(vw, vh) * 0.7, 280)))
+          return { width: side, height: side }
+        }
+
+        const scanConfig = { fps: 10, qrbox: qrboxFunction }
+
+        const onSuccess = (text) => {
+          if (processingRef.current) return
+          processingRef.current = true
+          const cleaned = text.replace(/\D/g, '').trim()
+          registerDni(cleaned, 'QR')
+          setTimeout(() => { processingRef.current = false }, 2500)
+        }
+
+        // Try back → front → first available camera
+        let started = false
+        for (const constraint of [
+          { facingMode: 'environment' },
+          { facingMode: 'user' },
+          null // will try by camera ID
+        ]) {
+          if (started || cancelled) break
+          try {
+            if (constraint) {
+              await qr.start(constraint, scanConfig, onSuccess, () => {})
+            } else {
+              const cams = await Html5Qrcode.getCameras()
+              if (cams && cams.length > 0) {
+                await qr.start(cams[0].id, scanConfig, onSuccess, () => {})
+              } else {
+                throw new Error('No cameras found')
+              }
+            }
+            started = true
+          } catch (e) {
+            console.warn('Camera attempt failed:', e)
           }
         }
-      }
 
-      // iOS needs playsinline attribute on the video element
-      const videoEl = document.querySelector(`#${containerId} video`)
-      if (videoEl) {
-        videoEl.setAttribute('playsinline', 'true')
-        videoEl.setAttribute('webkit-playsinline', 'true')
-      }
+        if (!started) {
+          throw new Error('All camera attempts failed')
+        }
 
-      setScanning(true)
-    } catch (err) {
-      console.error('Camera error:', err)
-      alert('No se pudo acceder a la cámara. Verificá los permisos en Ajustes > Safari/Chrome > Cámara.')
+        // iOS needs playsinline on the video element
+        const videoEl = document.querySelector(`#${containerId} video`)
+        if (videoEl) {
+          videoEl.setAttribute('playsinline', 'true')
+          videoEl.setAttribute('webkit-playsinline', 'true')
+        }
+
+        if (!cancelled) setScanning(true)
+      } catch (err) {
+        console.error('Camera error:', err)
+        if (!cancelled) {
+          setContainerReady(false)
+          alert('No se pudo acceder a la cámara. Verificá los permisos en Ajustes > Safari/Chrome > Cámara.')
+        }
+      }
     }
+
+    // Small delay to ensure the DOM container is painted with real dimensions
+    const timer = setTimeout(boot, 120)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [containerReady, registerDni])
+
+  const startScanner = async () => {
+    if (scannerRef.current) await stopScanner()
+    // First make the container visible so it has real layout dimensions
+    setContainerReady(true)
+    // The useEffect above will handle the actual camera start
   }
 
   const stopScanner = async () => {
@@ -490,8 +519,9 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
         await scannerRef.current.clear()
       } catch (_) {}
       scannerRef.current = null
-      setScanning(false)
     }
+    setScanning(false)
+    setContainerReady(false)
   }
 
   // Manual submit
@@ -547,8 +577,11 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
         </div>
 
         <div className="relative rounded-xl bg-slate-950 border border-slate-800 min-h-[260px] flex items-center justify-center overflow-hidden">
-          <div id={containerId} className={`w-full ${!scanning ? 'hidden' : ''}`} />
-          {!scanning && (
+          {/* Scanner container: always in DOM with real dimensions, visibility-controlled */}
+          <div id={containerId}
+            className={`w-full ${(scanning || containerReady) ? 'min-h-[260px]' : 'absolute inset-0 opacity-0 pointer-events-none'}`}
+            style={(scanning || containerReady) ? undefined : { height: '1px', overflow: 'hidden' }} />
+          {!scanning && !containerReady && (
             <div className="flex flex-col items-center p-8 text-center space-y-4">
               <div className="rounded-full bg-slate-800/80 p-4 ring-1 ring-slate-700/50">
                 <Camera className="h-10 w-10 text-slate-500" />
