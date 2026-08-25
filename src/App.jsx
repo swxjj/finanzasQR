@@ -5,7 +5,8 @@ import Papa from 'papaparse'
 import {
   QrCode, Camera, CameraOff, Upload, Download, Search, Users, UserCheck,
   FileSpreadsheet, CheckCircle2, AlertCircle, XCircle, Trash2, Volume2,
-  VolumeX, BarChart3, GraduationCap, ScanLine, X, Clock, Percent
+  VolumeX, BarChart3, GraduationCap, ScanLine, X, Clock, Percent,
+  Cloud, CloudOff, RefreshCw, Settings, Copy, Check, User
 } from 'lucide-react'
 
 // ─── Web Audio feedback ────────────────────────────────────────────
@@ -55,6 +56,61 @@ const save = (key, value) => localStorage.setItem(key, JSON.stringify(value))
 const todayISO = () => new Date().toISOString().split('T')[0]
 const nowTime = () => new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
+const GOOGLE_SCRIPT_SNIPPET = `// Google Apps Script para QR Asist
+function doGet(e) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheetPadron = ss.getSheetByName('Padron') || ss.insertSheet('Padron');
+  if (sheetPadron.getLastRow() === 0) sheetPadron.appendRow(['DNI', 'Libreta', 'Nombre_Apellido']);
+  
+  const pData = sheetPadron.getDataRange().getValues();
+  const padron = [];
+  for (let i = 1; i < pData.length; i++) {
+    if (pData[i][0]) padron.push({ dni: String(pData[i][0]).replace(/\\D/g, '').trim(), libreta: String(pData[i][1] || '').trim(), nombre: String(pData[i][2] || '').trim() });
+  }
+
+  let sheetAsist = ss.getSheetByName('Asistencias') || ss.insertSheet('Asistencias');
+  if (sheetAsist.getLastRow() === 0) sheetAsist.appendRow(['Fecha', 'Hora', 'DNI', 'Libreta', 'Nombre_Apellido', 'Profesor', 'Materia']);
+  
+  const aData = sheetAsist.getDataRange().getValues();
+  const records = [];
+  for (let i = 1; i < aData.length; i++) {
+    if (aData[i][0]) {
+      let d = aData[i][0];
+      let fDate = (d instanceof Date) ? Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(d);
+      records.push({ date: fDate, time: String(aData[i][1] || ''), dni: String(aData[i][2] || '').replace(/\\D/g, '').trim(), libreta: String(aData[i][3] || ''), nombre: String(aData[i][4] || ''), profesor: String(aData[i][5] || 'Docente'), materia: String(aData[i][6] || '') });
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ status: 'ok', padron, records })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const data = JSON.parse(e.postData.contents);
+    const action = data.action || 'register';
+
+    if (action === 'register') {
+      let sheet = ss.getSheetByName('Asistencias') || ss.insertSheet('Asistencias');
+      if (sheet.getLastRow() === 0) sheet.appendRow(['Fecha', 'Hora', 'DNI', 'Libreta', 'Nombre_Apellido', 'Profesor', 'Materia']);
+      sheet.appendRow([data.date, data.time, String(data.dni), String(data.libreta || ''), String(data.nombre || ''), String(data.profesor || 'Docente'), String(data.materia || '')]);
+      return ContentService.createTextOutput(JSON.stringify({ status: 'ok' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (action === 'sync_padron') {
+      let sheet = ss.getSheetByName('Padron') || ss.insertSheet('Padron');
+      sheet.clearContents();
+      sheet.appendRow(['DNI', 'Libreta', 'Nombre_Apellido']);
+      if (data.padron && data.padron.length > 0) {
+        sheet.getRange(2, 1, data.padron.length, 3).setValues(data.padron.map(p => [String(p.dni), String(p.libreta || ''), String(p.nombre)]));
+      }
+      return ContentService.createTextOutput(JSON.stringify({ status: 'ok', count: data.padron.length })).setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}`
+
 // ═══════════════════════════════════════════════════════════════════
 //  APP
 // ═══════════════════════════════════════════════════════════════════
@@ -63,16 +119,26 @@ export default function App() {
   const [role, setRole] = useState(() => load('qr_role', null)) // 'profesor' | 'alumno' | null
 
   // ── Padrón (roster) ─────────────────────────────────────────────
-  // Each item: { dni: string, libreta: string, nombre: string }
   const [roster, setRoster] = useState(() => load('qr_roster', []))
 
   // ── Attendance records ──────────────────────────────────────────
-  // Each item: { dni, nombre, date, time }
   const [records, setRecords] = useState(() => load('qr_records', []))
+
+  // ── Cloud Google Sheets configuration ───────────────────────────
+  const [sheetsUrl, setSheetsUrl] = useState(() => {
+    return load('qr_sheets_url', import.meta.env.VITE_SHEETS_API_URL || '')
+  })
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [lastSyncTime, setLastSyncTime] = useState(() => load('qr_last_sync', null))
+
+  // ── Professor identity ──────────────────────────────────────────
+  const [profesorName, setProfesorName] = useState(() => load('qr_profesor_name', 'Hernán'))
+  const [materiaName, setMateriaName] = useState(() => load('qr_materia_name', 'Física'))
 
   // ── UI state ────────────────────────────────────────────────────
   const [soundOn, setSoundOn] = useState(() => load('qr_sound', true))
-  const [toast, setToast] = useState(null) // { type, text }
+  const [toast, setToast] = useState(null)
+  const [showConfigModal, setShowConfigModal] = useState(false)
   const toastTimer = useRef(null)
 
   // Persist
@@ -80,6 +146,10 @@ export default function App() {
   useEffect(() => { save('qr_roster', roster) }, [roster])
   useEffect(() => { save('qr_records', records) }, [records])
   useEffect(() => { save('qr_sound', soundOn) }, [soundOn])
+  useEffect(() => { save('qr_sheets_url', sheetsUrl) }, [sheetsUrl])
+  useEffect(() => { save('qr_profesor_name', profesorName) }, [profesorName])
+  useEffect(() => { save('qr_materia_name', materiaName) }, [materiaName])
+  useEffect(() => { save('qr_last_sync', lastSyncTime) }, [lastSyncTime])
 
   // Toast helper
   const showToast = useCallback((type, text, ms = 4000) => {
@@ -87,6 +157,84 @@ export default function App() {
     setToast({ type, text })
     toastTimer.current = setTimeout(() => setToast(null), ms)
   }, [])
+
+  // ── Cloud Pull: Sincronizar desde Google Sheets ─────────────────
+  const pullFromSheets = useCallback(async (urlToUse = sheetsUrl, silent = false) => {
+    if (!urlToUse) return
+    setIsSyncing(true)
+    try {
+      const res = await fetch(urlToUse, { method: 'GET' })
+      const data = await res.json()
+      if (data && data.status === 'ok') {
+        if (data.padron && Array.isArray(data.padron) && data.padron.length > 0) {
+          setRoster(data.padron)
+        }
+        if (data.records && Array.isArray(data.records)) {
+          setRecords(data.records)
+        }
+        const timeStr = nowTime()
+        setLastSyncTime(timeStr)
+        if (!silent) {
+          showToast('ok', `☁️ Sincronizado con Sheets (${data.records.length} asistencias, ${data.padron.length} alumnos).`)
+        }
+      }
+    } catch (err) {
+      console.warn('Error syncing with Google Sheets:', err)
+      if (!silent) {
+        showToast('error', 'No se pudo conectar con Google Sheets. Revisa la URL o la conexión.')
+      }
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [sheetsUrl, showToast])
+
+  // Auto-sync on first load if URL exists
+  useEffect(() => {
+    if (sheetsUrl && role === 'profesor') {
+      pullFromSheets(sheetsUrl, true)
+    }
+  }, [role, sheetsUrl, pullFromSheets])
+
+  // ── Cloud Push: Subir asistencia individual a Google Sheets ──────
+  const pushAttendanceToSheets = useCallback(async (newRecord) => {
+    if (!sheetsUrl) return
+    try {
+      await fetch(sheetsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'register',
+          ...newRecord
+        })
+      })
+    } catch (err) {
+      console.warn('Could not push record to Google Sheets immediately (saved locally):', err)
+    }
+  }, [sheetsUrl])
+
+  // ── Cloud Push: Subir Padrón completo a Google Sheets ────────────
+  const pushRosterToSheets = useCallback(async (newRoster) => {
+    if (!sheetsUrl) return
+    setIsSyncing(true)
+    try {
+      const res = await fetch(sheetsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'sync_padron',
+          padron: newRoster
+        })
+      })
+      const data = await res.json()
+      if (data.status === 'ok') {
+        showToast('ok', `☁️ Padrón de ${newRoster.length} alumnos guardado en Google Sheets.`)
+      }
+    } catch (err) {
+      console.warn('Error uploading roster to sheets:', err)
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [sheetsUrl, showToast])
 
   // ── Role screen ─────────────────────────────────────────────────
   if (!role) {
@@ -96,10 +244,12 @@ export default function App() {
           <div className="mx-auto h-20 w-20 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-2xl shadow-indigo-600/40">
             <QrCode className="h-10 w-10 text-white" />
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">QR Asist</h1>
-          <p className="text-sm text-slate-400">Sistema de control de asistencia con QR</p>
+          <div>
+            <h1 className="text-3xl font-extrabold text-white tracking-tight">QR Asist</h1>
+            <p className="text-sm text-slate-400 mt-1">Control de asistencia compartido con Google Sheets</p>
+          </div>
 
-          <div className="grid gap-4 pt-4">
+          <div className="grid gap-4 pt-2">
             <button onClick={() => setRole('profesor')}
               className="flex items-center justify-center gap-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 px-6 py-4 text-base font-bold text-white shadow-lg shadow-indigo-600/30 transition-all active:scale-[0.97]">
               <GraduationCap className="h-6 w-6" /> Soy Profesor/a
@@ -123,13 +273,34 @@ export default function App() {
   //  PROFESOR VIEW
   // ═══════════════════════════════════════════════════════════════
   return (
-    <ProfesorView
-      roster={roster} setRoster={setRoster}
-      records={records} setRecords={setRecords}
-      soundOn={soundOn} setSoundOn={setSoundOn}
-      toast={toast} showToast={showToast} setToast={setToast}
-      onBack={() => setRole(null)}
-    />
+    <>
+      <ProfesorView
+        roster={roster} setRoster={setRoster}
+        records={records} setRecords={setRecords}
+        soundOn={soundOn} setSoundOn={setSoundOn}
+        toast={toast} showToast={showToast} setToast={setToast}
+        profesorName={profesorName} setProfesorName={setProfesorName}
+        materiaName={materiaName} setMateriaName={setMateriaName}
+        sheetsUrl={sheetsUrl} setSheetsUrl={setSheetsUrl}
+        isSyncing={isSyncing} lastSyncTime={lastSyncTime}
+        onPullFromSheets={pullFromSheets}
+        onPushAttendance={pushAttendanceToSheets}
+        onPushRoster={pushRosterToSheets}
+        onOpenConfig={() => setShowConfigModal(true)}
+        onBack={() => setRole(null)}
+      />
+
+      {/* Config Google Sheets Modal */}
+      {showConfigModal && (
+        <ConfigSheetsModal
+          sheetsUrl={sheetsUrl}
+          setSheetsUrl={setSheetsUrl}
+          onClose={() => setShowConfigModal(false)}
+          onTestSync={(url) => pullFromSheets(url, false)}
+          showToast={showToast}
+        />
+      )}
+    </>
   )
 }
 
@@ -165,7 +336,6 @@ function AlumnoView({ onBack }) {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
-      {/* Header */}
       <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl px-4 py-3 flex items-center justify-between">
         <button onClick={onBack} className="text-xs text-slate-400 hover:text-white flex items-center gap-1">
           ← Volver
@@ -215,8 +385,35 @@ function AlumnoView({ onBack }) {
 // ═══════════════════════════════════════════════════════════════════
 //  PROFESOR VIEW
 // ═══════════════════════════════════════════════════════════════════
-function ProfesorView({ roster, setRoster, records, setRecords, soundOn, setSoundOn, toast, showToast, setToast, onBack }) {
+function ProfesorView({
+  roster, setRoster,
+  records, setRecords,
+  soundOn, setSoundOn,
+  toast, showToast, setToast,
+  profesorName, setProfesorName,
+  materiaName, setMateriaName,
+  sheetsUrl, setSheetsUrl,
+  isSyncing, lastSyncTime,
+  onPullFromSheets,
+  onPushAttendance,
+  onPushRoster,
+  onOpenConfig,
+  onBack
+}) {
   const [tab, setTab] = useState('scan') // 'scan' | 'report'
+
+  // Stable refs for scan logic
+  const recordsRef = useRef(records)
+  const rosterRef = useRef(roster)
+  const soundRef = useRef(soundOn)
+  const profRef = useRef(profesorName)
+  const matRef = useRef(materiaName)
+
+  useEffect(() => { recordsRef.current = records }, [records])
+  useEffect(() => { rosterRef.current = roster }, [roster])
+  useEffect(() => { soundRef.current = soundOn }, [soundOn])
+  useEffect(() => { profRef.current = profesorName }, [profesorName])
+  useEffect(() => { matRef.current = materiaName }, [materiaName])
 
   // ── CSV Upload ────────────────────────────────────────────────
   const handleCSV = (e) => {
@@ -239,6 +436,10 @@ function ProfesorView({ roster, setRoster, records, setRecords, soundOn, setSoun
         }
         setRoster(parsed)
         showToast('ok', `Padrón cargado: ${parsed.length} alumnos.`)
+        // Auto sync roster to cloud if connected
+        if (sheetsUrl) {
+          onPushRoster(parsed)
+        }
       },
       error: () => showToast('error', 'Error al leer el archivo CSV.')
     })
@@ -246,22 +447,14 @@ function ProfesorView({ roster, setRoster, records, setRecords, soundOn, setSoun
   }
 
   const clearRoster = () => {
-    if (window.confirm('¿Borrar todo el padrón y las asistencias?')) {
+    if (window.confirm('¿Borrar el padrón y las asistencias locales?')) {
       setRoster([])
       setRecords([])
-      showToast('ok', 'Datos eliminados.')
+      showToast('ok', 'Datos locales eliminados.')
     }
   }
 
-  // ── Stable refs so registerDni never changes identity ────────
-  const recordsRef = useRef(records)
-  const rosterRef = useRef(roster)
-  const soundRef = useRef(soundOn)
-  useEffect(() => { recordsRef.current = records }, [records])
-  useEffect(() => { rosterRef.current = roster }, [roster])
-  useEffect(() => { soundRef.current = soundOn }, [soundOn])
-
-  // ── Attendance logic (stable callback — never recreated) ──────
+  // ── Attendance logic (stable callback) ────────────────────────
   const registerDni = useCallback((rawDni, source = 'QR') => {
     const dni = rawDni.replace(/\D/g, '').trim()
     if (!dni) return
@@ -269,6 +462,8 @@ function ProfesorView({ roster, setRoster, records, setRecords, soundOn, setSoun
     const currentRoster = rosterRef.current
     const currentRecords = recordsRef.current
     const sound = soundRef.current
+    const prof = profRef.current
+    const mat = matRef.current
 
     const student = currentRoster.find(s => s.dni === dni)
     if (!student) {
@@ -285,11 +480,23 @@ function ProfesorView({ roster, setRoster, records, setRecords, soundOn, setSoun
       return
     }
 
-    const newRec = { dni, nombre: student.nombre, date: today, time: nowTime() }
+    const newRec = {
+      dni,
+      libreta: student.libreta || '',
+      nombre: student.nombre,
+      date: today,
+      time: nowTime(),
+      profesor: prof || 'Docente',
+      materia: mat || ''
+    }
+
     setRecords(prev => [...prev, newRec])
     if (sound) beep('ok')
     showToast('ok', `✓ ${student.nombre} — Presente`)
-  }, [showToast, setRecords]) // only stable deps — never changes
+
+    // Background push to Google Sheets
+    onPushAttendance(newRec)
+  }, [showToast, setRecords, onPushAttendance])
 
   // ── Today count ───────────────────────────────────────────────
   const today = todayISO()
@@ -298,29 +505,83 @@ function ProfesorView({ roster, setRoster, records, setRecords, soundOn, setSoun
   // ── Tabs ──────────────────────────────────────────────────────
   const tabs = [
     { id: 'scan', label: 'Escanear', icon: Camera },
-    { id: 'report', label: 'Reporte', icon: BarChart3 },
+    { id: 'report', label: 'Reporte General', icon: BarChart3 },
   ]
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col text-slate-100">
       {/* Header */}
       <header className="print:hidden sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl">
-        <div className="max-w-3xl mx-auto px-4 flex items-center justify-between h-14">
+        <div className="max-w-4xl mx-auto px-4 flex items-center justify-between h-14">
           <button onClick={onBack} className="text-xs text-slate-400 hover:text-white">← Cambiar rol</button>
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-md">
-              <QrCode className="h-4 w-4 text-white" />
-            </div>
-            <span className="font-extrabold text-white">QR Asist</span>
+          
+          {/* Active Teacher Selector */}
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1 rounded-xl text-xs">
+            <User className="h-3.5 w-3.5 text-indigo-400" />
+            <input
+              type="text"
+              value={profesorName}
+              onChange={e => setProfesorName(e.target.value)}
+              placeholder="Profesor..."
+              title="Nombre del profesor que toma lista hoy"
+              className="bg-transparent text-white font-bold w-24 sm:w-28 focus:outline-none"
+            />
+            <span className="text-slate-600">|</span>
+            <input
+              type="text"
+              value={materiaName}
+              onChange={e => setMateriaName(e.target.value)}
+              placeholder="Materia..."
+              title="Materia / Comisión"
+              className="bg-transparent text-slate-400 w-16 sm:w-20 focus:outline-none"
+            />
           </div>
-          <button onClick={() => setSoundOn(!soundOn)} title={soundOn ? 'Silenciar' : 'Activar sonido'}
-            className={`p-2 rounded-lg transition-colors ${soundOn ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500'}`}>
-            {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-          </button>
+
+          <div className="flex items-center gap-1.5">
+            {/* Cloud Status / Sync button */}
+            <button
+              onClick={() => {
+                if (sheetsUrl) onPullFromSheets(sheetsUrl, false)
+                else onOpenConfig()
+              }}
+              title={sheetsUrl ? `Sincronizado con Google Sheets (Última: ${lastSyncTime || 'Nunca'})` : 'Conectar Google Sheets'}
+              className={`p-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                sheetsUrl
+                  ? isSyncing
+                    ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                    : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                  : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+              }`}
+            >
+              {sheetsUrl ? (
+                <>
+                  <Cloud className={`h-4 w-4 ${isSyncing ? 'animate-pulse' : ''}`} />
+                  <span className="hidden sm:inline">{isSyncing ? 'Sincronizando...' : 'Sheets'}</span>
+                </>
+              ) : (
+                <>
+                  <CloudOff className="h-4 w-4 text-slate-500" />
+                  <span className="hidden sm:inline">Conectar Sheets</span>
+                </>
+              )}
+            </button>
+
+            {/* Settings button */}
+            <button onClick={onOpenConfig} title="Configuración de Google Sheets"
+              className="p-2 rounded-lg text-slate-400 hover:text-white bg-slate-900/60 border border-slate-800 transition-colors">
+              <Settings className="h-4 w-4" />
+            </button>
+
+            {/* Sound toggle */}
+            <button onClick={() => setSoundOn(!soundOn)} title={soundOn ? 'Silenciar' : 'Activar sonido'}
+              className={`p-2 rounded-lg transition-colors ${soundOn ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500'}`}>
+              {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
 
         {/* Tab bar */}
-        <div className="max-w-3xl mx-auto px-4 flex gap-1 pb-2">
+        <div className="max-w-4xl mx-auto px-4 flex gap-1 pb-2">
           {tabs.map(t => {
             const Icon = t.icon
             return (
@@ -353,8 +614,8 @@ function ProfesorView({ roster, setRoster, records, setRecords, soundOn, setSoun
       )}
 
       {/* Main */}
-      <main className="flex-1 max-w-3xl w-full mx-auto p-4 space-y-5">
-        {/* Roster bar */}
+      <main className="flex-1 max-w-4xl w-full mx-auto p-4 space-y-5">
+        {/* Roster & Cloud bar */}
         <div className="print:hidden rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-xl backdrop-blur-md">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs">
@@ -371,14 +632,27 @@ function ProfesorView({ roster, setRoster, records, setRecords, soundOn, setSoun
                 </>
               )}
             </div>
+
             <div className="flex items-center gap-2">
+              {sheetsUrl && (
+                <button
+                  onClick={() => onPullFromSheets(sheetsUrl, false)}
+                  disabled={isSyncing}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 transition-colors"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 text-sky-400 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>Sincronizar Sheets</span>
+                </button>
+              )}
+
               <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition-all active:scale-[0.97]">
                 <Upload className="h-4 w-4" />
-                {roster.length ? 'Recargar CSV' : 'Cargar Padrón CSV'}
+                {roster.length ? 'Subir CSV' : 'Cargar Padrón CSV'}
                 <input type="file" accept=".csv" onChange={handleCSV} className="hidden" />
               </label>
+
               {roster.length > 0 && (
-                <button onClick={clearRoster} title="Borrar todo"
+                <button onClick={clearRoster} title="Borrar datos locales"
                   className="p-2 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors">
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -388,36 +662,61 @@ function ProfesorView({ roster, setRoster, records, setRecords, soundOn, setSoun
         </div>
 
         {roster.length === 0 ? (
-          <EmptyRosterHint />
+          <EmptyRosterHint onOpenConfig={onOpenConfig} hasSheets={Boolean(sheetsUrl)} />
         ) : tab === 'scan' ? (
-          <ScanTab roster={roster} records={records} registerDni={registerDni} todayCount={todayCount} totalRoster={roster.length} />
+          <ScanTab
+            roster={roster}
+            records={records}
+            registerDni={registerDni}
+            todayCount={todayCount}
+            totalRoster={roster.length}
+            profesorName={profesorName}
+            materiaName={materiaName}
+          />
         ) : (
-          <ReportTab roster={roster} records={records} setRecords={setRecords} showToast={showToast} />
+          <ReportTab
+            roster={roster}
+            records={records}
+            setRecords={setRecords}
+            showToast={showToast}
+          />
         )}
       </main>
 
       <footer className="print:hidden border-t border-slate-900 py-3 text-center text-[11px] text-slate-600">
-        QR Asist • React + Tailwind v4 + html5-qrcode
+        QR Asist • Sincronización Google Sheets + React 19 + Tailwind CSS v4
       </footer>
     </div>
   )
 }
 
 // ── Empty roster placeholder ─────────────────────────────────────
-function EmptyRosterHint() {
+function EmptyRosterHint({ onOpenConfig, hasSheets }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-10 text-center space-y-3 animate-slide-up">
+    <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-10 text-center space-y-4 animate-slide-up">
       <FileSpreadsheet className="h-12 w-12 mx-auto text-slate-600" />
-      <h3 className="text-base font-bold text-slate-300">Cargá tu padrón para comenzar</h3>
-      <p className="text-xs text-slate-500 max-w-xs mx-auto">
-        Subí un archivo CSV con las columnas <code className="text-indigo-400">DNI</code>,{' '}
-        <code className="text-indigo-400">Libreta</code>,{' '}
-        <code className="text-indigo-400">Nombre_Apellido</code>.
-      </p>
+      <div>
+        <h3 className="text-base font-bold text-slate-300">Padrón no cargado</h3>
+        <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+          Podés subir un archivo CSV con los alumnos o conectar tu Google Sheet para descargarlo automáticamente.
+        </p>
+      </div>
+
+      <div className="flex justify-center gap-3 pt-1">
+        {!hasSheets && (
+          <button
+            onClick={onOpenConfig}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200"
+          >
+            <Cloud className="h-4 w-4 text-indigo-400" /> Conectar Google Sheets
+          </button>
+        )}
+      </div>
+
       <div className="inline-block rounded-lg bg-slate-800 border border-slate-700 px-4 py-2 text-[11px] text-slate-400 font-mono text-left">
         DNI,Libreta,Nombre_Apellido<br/>
-        45123456,LU-1234,García María<br/>
-        44987654,LU-5678,López Juan
+        44102931,LU-2024-01,Agustina Belén Morales<br/>
+        43890123,LU-2024-02,Benjamín Ignacio Castro
       </div>
     </div>
   )
@@ -426,7 +725,7 @@ function EmptyRosterHint() {
 // ═══════════════════════════════════════════════════════════════════
 //  SCAN TAB
 // ═══════════════════════════════════════════════════════════════════
-function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
+function ScanTab({ roster, records, registerDni, todayCount, totalRoster, profesorName, materiaName }) {
   const [scanning, setScanning] = useState(false)
   const [containerReady, setContainerReady] = useState(false)
   const [manualDni, setManualDni] = useState('')
@@ -440,7 +739,7 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
     return () => { stopScanner() }
   }, [])
 
-  // When containerReady flips to true, actually start the camera
+  // When containerReady flips to true, start camera
   useEffect(() => {
     if (!containerReady) return
     let cancelled = false
@@ -450,7 +749,6 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
         const qr = new Html5Qrcode(containerId)
         scannerRef.current = qr
 
-        // Responsive qrbox that adapts to the viewport (critical for iOS)
         const qrboxFunction = (vw, vh) => {
           const side = Math.floor(Math.max(150, Math.min(Math.min(vw, vh) * 0.7, 280)))
           return { width: side, height: side }
@@ -466,12 +764,11 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
           setTimeout(() => { processingRef.current = false }, 2500)
         }
 
-        // Try back → front → first available camera
         let started = false
         for (const constraint of [
           { facingMode: 'environment' },
           { facingMode: 'user' },
-          null // will try by camera ID
+          null
         ]) {
           if (started || cancelled) break
           try {
@@ -491,11 +788,8 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
           }
         }
 
-        if (!started) {
-          throw new Error('All camera attempts failed')
-        }
+        if (!started) throw new Error('All camera attempts failed')
 
-        // iOS needs playsinline on the video element
         const videoEl = document.querySelector(`#${containerId} video`)
         if (videoEl) {
           videoEl.setAttribute('playsinline', 'true')
@@ -507,21 +801,18 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
         console.error('Camera error:', err)
         if (!cancelled) {
           setContainerReady(false)
-          alert('No se pudo acceder a la cámara. Verificá los permisos en Ajustes > Safari/Chrome > Cámara.')
+          alert('No se pudo acceder a la cámara. Verificá los permisos en Ajustes > Navegador > Cámara.')
         }
       }
     }
 
-    // Small delay to ensure the DOM container is painted with real dimensions
     const timer = setTimeout(boot, 120)
     return () => { cancelled = true; clearTimeout(timer) }
   }, [containerReady, registerDni])
 
   const startScanner = async () => {
     if (scannerRef.current) await stopScanner()
-    // First make the container visible so it has real layout dimensions
     setContainerReady(true)
-    // The useEffect above will handle the actual camera start
   }
 
   const stopScanner = async () => {
@@ -536,7 +827,6 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
     setContainerReady(false)
   }
 
-  // Manual submit
   const handleManual = (e) => {
     e.preventDefault()
     if (!manualDni.trim()) return
@@ -544,17 +834,14 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
     setManualDni('')
   }
 
-  // Search filtered roster
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return []
     const q = searchTerm.toLowerCase()
     return roster.filter(s => s.nombre.toLowerCase().includes(q) || s.dni.includes(q)).slice(0, 8)
   }, [roster, searchTerm])
 
-  // Today's attendance list
   const today = todayISO()
   const todayList = useMemo(() => records.filter(r => r.date === today), [records, today])
-
   const pct = totalRoster > 0 ? Math.round((todayCount / totalRoster) * 100) : 0
 
   return (
@@ -581,15 +868,17 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <ScanLine className="h-4 w-4 text-indigo-400" /> Escáner QR
           </h2>
-          {scanning && (
-            <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" /> Activo
-            </span>
-          )}
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span>Tomando lista: <strong className="text-indigo-300">{profesorName}</strong></span>
+            {scanning && (
+              <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold ml-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" /> Activo
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="relative rounded-xl bg-slate-950 border border-slate-800 min-h-[260px] flex items-center justify-center overflow-hidden">
-          {/* Scanner container: always in DOM with real dimensions, visibility-controlled */}
           <div id={containerId}
             className={`w-full ${(scanning || containerReady) ? 'min-h-[260px]' : 'absolute inset-0 opacity-0 pointer-events-none'}`}
             style={(scanning || containerReady) ? undefined : { height: '1px', overflow: 'hidden' }} />
@@ -632,7 +921,7 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
       {/* Search students */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-xl backdrop-blur-md">
         <h3 className="text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
-          <Search className="h-4 w-4 text-indigo-400" /> Buscar alumno
+          <Search className="h-4 w-4 text-indigo-400" /> Buscar alumno en padrón
         </h3>
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -681,6 +970,7 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
                 <div>
                   <span className="text-xs font-semibold text-white">{r.nombre}</span>
                   <span className="text-[11px] text-slate-500 ml-2 font-mono">{r.dni}</span>
+                  {r.profesor && <span className="text-[10px] text-indigo-400/80 ml-2">({r.profesor})</span>}
                 </div>
                 <span className="text-[11px] text-slate-400 font-mono">{r.time}</span>
               </div>
@@ -698,13 +988,11 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
 function ReportTab({ roster, records, setRecords, showToast }) {
   const [search, setSearch] = useState('')
 
-  // All unique dates that have at least one record
   const allDates = useMemo(() => {
     const set = new Set(records.map(r => r.date))
     return Array.from(set).sort()
   }, [records])
 
-  // Build matrix: for each student → which dates present, total, %
   const matrix = useMemo(() => {
     const totalDates = allDates.length
     return roster.map(s => {
@@ -718,24 +1006,22 @@ function ReportTab({ roster, records, setRecords, showToast }) {
     })
   }, [roster, records, allDates])
 
-  // Filter
   const filtered = useMemo(() => {
     if (!search.trim()) return matrix
     const q = search.toLowerCase()
     return matrix.filter(s => s.nombre.toLowerCase().includes(q) || s.dni.includes(q))
   }, [matrix, search])
 
-  // Export CSV matrix
   const handleExport = () => {
     if (allDates.length === 0) {
       showToast('error', 'No hay asistencias registradas para exportar.')
       return
     }
 
-    const header = ['DNI', 'Nombre_Apellido', ...allDates, 'Total', 'Porcentaje']
+    const header = ['DNI', 'Libreta', 'Nombre_Apellido', ...allDates, 'Total_Asistencias', 'Porcentaje_Presentismo']
     const rows = matrix.map(s => {
       const dateCols = allDates.map(d => s.perDate[d] ? '1' : '0')
-      return [s.dni, s.nombre, ...dateCols, String(s.total), `${s.pct}%`]
+      return [s.dni, s.libreta || '', s.nombre, ...dateCols, String(s.total), `${s.pct}%`]
     })
 
     const csvContent = Papa.unparse({ fields: header, data: rows })
@@ -743,17 +1029,16 @@ function ReportTab({ roster, records, setRecords, showToast }) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `reporte_asistencia_${todayISO()}.csv`
+    a.download = `matriz_asistencias_${todayISO()}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    showToast('ok', `CSV exportado con ${roster.length} alumnos y ${allDates.length} fechas.`)
+    showToast('ok', `Matriz CSV exportada (${roster.length} alumnos, ${allDates.length} fechas).`)
   }
 
-  // Clear all records
   const clearRecords = () => {
-    if (window.confirm('¿Borrar todas las asistencias registradas?')) {
+    if (window.confirm('¿Borrar todas las asistencias registradas localmente?')) {
       setRecords([])
-      showToast('ok', 'Asistencias eliminadas.')
+      showToast('ok', 'Asistencias eliminadas localmente.')
     }
   }
 
@@ -764,11 +1049,10 @@ function ReportTab({ roster, records, setRecords, showToast }) {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-indigo-400" /> Reporte de Presentismo
+              <BarChart3 className="h-5 w-5 text-indigo-400" /> Matriz Consolidada de Presentismo
             </h2>
             <p className="text-[11px] text-slate-500">
-              {allDates.length} fecha{allDates.length !== 1 ? 's' : ''} registrada{allDates.length !== 1 ? 's' : ''} •{' '}
-              {roster.length} alumnos en padrón
+              {allDates.length} fecha{allDates.length !== 1 ? 's' : ''} con registro • {roster.length} alumnos en padrón
             </p>
           </div>
           <div className="flex gap-2">
@@ -778,7 +1062,7 @@ function ReportTab({ roster, records, setRecords, showToast }) {
             </button>
             <button onClick={handleExport}
               className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition-all active:scale-[0.97]">
-              <Download className="h-4 w-4" /> Exportar CSV
+              <Download className="h-4 w-4" /> Exportar Matriz CSV
             </button>
           </div>
         </div>
@@ -800,19 +1084,19 @@ function ReportTab({ roster, records, setRecords, showToast }) {
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-3">
             <div className="text-lg font-extrabold text-indigo-400">{allDates.length}</div>
-            <div className="text-slate-500">Clases</div>
+            <div className="text-slate-500">Clases / Fechas</div>
           </div>
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
             <div className="text-lg font-extrabold text-emerald-400">
               {roster.length > 0 ? Math.round(matrix.reduce((a, s) => a + s.pct, 0) / roster.length) : 0}%
             </div>
-            <div className="text-slate-400">Promedio gral.</div>
+            <div className="text-slate-400">Promedio general</div>
           </div>
           <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
             <div className="text-lg font-extrabold text-rose-400">
               {matrix.filter(s => s.pct < 60).length}
             </div>
-            <div className="text-slate-400">&lt;60% asist.</div>
+            <div className="text-slate-400">Menos del 60%</div>
           </div>
         </div>
       )}
@@ -832,11 +1116,11 @@ function ReportTab({ roster, records, setRecords, showToast }) {
                   <th className="py-3 px-3">DNI</th>
                   {allDates.map(d => (
                     <th key={d} className="py-3 px-2 text-center whitespace-nowrap">
-                      {d.slice(5)} {/* MM-DD */}
+                      {d.slice(5)}
                     </th>
                   ))}
                   <th className="py-3 px-3 text-center">Total</th>
-                  <th className="py-3 px-3 text-center">%</th>
+                  <th className="py-3 px-3 text-center">% Asist.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -872,6 +1156,98 @@ function ReportTab({ roster, records, setRecords, showToast }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CONFIG GOOGLE SHEETS MODAL
+// ═══════════════════════════════════════════════════════════════════
+function ConfigSheetsModal({ sheetsUrl, setSheetsUrl, onClose, onTestSync, showToast }) {
+  const [urlInput, setUrlInput] = useState(sheetsUrl || '')
+  const [copied, setCopied] = useState(false)
+
+  const handleSave = () => {
+    const trimmed = urlInput.trim()
+    setSheetsUrl(trimmed)
+    if (trimmed) {
+      onTestSync(trimmed)
+    }
+    showToast('ok', 'Configuración de Google Sheets guardada.')
+    onClose()
+  }
+
+  const handleCopyScript = () => {
+    navigator.clipboard.writeText(GOOGLE_SCRIPT_SNIPPET)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <Cloud className="h-5 w-5 text-indigo-400" /> Conectar Google Sheets Compartido
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-300">
+          Permite que <strong>Hernán, Valeria y cualquier profesor</strong> sincronicen asistencias en tiempo real en una misma planilla de Google Sheets.
+        </p>
+
+        {/* Pasos de configuración */}
+        <div className="space-y-3 rounded-xl bg-slate-950 p-4 border border-slate-800 text-xs text-slate-300">
+          <h4 className="font-bold text-indigo-400 uppercase tracking-wider text-[11px]">Pasos para conectar (2 minutos):</h4>
+          <ol className="list-decimal list-inside space-y-1.5 text-slate-400">
+            <li>Creá una hoja en blanco en <a href="https://sheets.new" target="_blank" rel="noreferrer" className="text-indigo-400 underline">sheets.new</a>.</li>
+            <li>Andá al menú superior: <strong>Extensiones &gt; Apps Script</strong>.</li>
+            <li>Pegá el código que copiás con el botón de abajo.</li>
+            <li>Hacé clic en <strong>Implementar &gt; Nueva implementación</strong>:
+              <ul className="list-disc list-inside ml-4 mt-1 text-[11px] text-slate-500">
+                <li>Tipo: <em>Aplicación web</em></li>
+                <li>Ejecutar como: <em>Yo</em></li>
+                <li>Quién tiene acceso: <strong className="text-emerald-400">Cualquier persona (Anyone)</strong></li>
+              </ul>
+            </li>
+            <li>Copiá la <strong>URL de la aplicación web</strong> que te da Google y pegala acá abajo.</li>
+          </ol>
+
+          <button onClick={handleCopyScript}
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 py-2 text-xs font-bold text-indigo-300 transition-colors">
+            {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+            {copied ? '¡Código Copiado al portapapeles!' : 'Copiar Código de Google Apps Script'}
+          </button>
+        </div>
+
+        {/* Input URL */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-slate-200">
+            URL de la Aplicación Web de Google Script
+          </label>
+          <input
+            type="url"
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+            className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+          <button onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700">
+            Cancelar
+          </button>
+          <button onClick={handleSave}
+            className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30">
+            Guardar y Sincronizar
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
