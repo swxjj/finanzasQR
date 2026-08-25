@@ -1,35 +1,56 @@
 // ===================================================================
-// CÓDIGO PARA GOOGLE APPS SCRIPT (QR Asist - Matriz con Fórmulas Vivas)
+// CÓDIGO PARA GOOGLE APPS SCRIPT (QR Asist - Versión Robusta y Estable)
 // ===================================================================
 // INSTRUCCIONES:
 // 1. Abrí tu Google Sheet.
 // 2. Andá a Extensiones > Apps Script.
-// 3. Reemplazá todo el contenido con este código y Guardá (Ctrl+S).
-// 4. Hacé clic en: Implementar > Administrar implementaciones > Editar (✏️) >
+// 3. Borrá todo y pegá exactamente este código.
+// 4. Guardá con Ctrl+S.
+// 5. Hacé clic en: Implementar > Administrar implementaciones > Editar (✏️) >
 //    Versión: "Nueva versión" > Implementar.
 // ===================================================================
 
 function doGet(e) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const data = obtenerDatosCompletos(ss);
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const data = obtenerDatosCompletos(ss);
 
-  // Asegurar que la matriz de fórmulas esté armada
-  armarMatrizConFormulas(ss);
+    // Intentar armar la matriz protegida contra errores
+    try {
+      armarMatriz(ss, data.padron, data.records);
+    } catch (mErr) {
+      Logger.log('Error armando matriz: ' + mErr.toString());
+    }
 
-  const output = ContentService.createTextOutput(JSON.stringify({
-    status: 'ok',
-    padron: data.padron,
-    records: data.records
-  }));
-  output.setMimeType(ContentService.MimeType.JSON);
-  return output;
+    const response = {
+      status: 'ok',
+      padron: data.padron,
+      records: data.records
+    };
+
+    return ContentService.createTextOutput(JSON.stringify(response))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      message: err.toString(),
+      padron: [],
+      records: []
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function doPost(e) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const data = JSON.parse(e.postData.contents);
-    const action = data.action || 'register';
+    let contents = {};
+    try {
+      contents = JSON.parse(e.postData.contents);
+    } catch (_) {
+      contents = e.parameter || {};
+    }
+
+    const action = contents.action || 'register';
 
     if (action === 'register') {
       let sheetAsist = ss.getSheetByName('Asistencias');
@@ -37,22 +58,22 @@ function doPost(e) {
         sheetAsist = ss.insertSheet('Asistencias');
         sheetAsist.appendRow(['Fecha', 'Hora', 'DNI', 'Libreta', 'Nombre_Apellido']);
       }
-      
-      const cleanDni = String(data.dni).replace(/\D/g, '').trim();
-      const cleanDate = String(data.date).trim();
 
-      sheetAsist.appendRow([
-        cleanDate,
-        data.time,
-        cleanDni,
-        String(data.libreta || ''),
-        String(data.nombre || '')
-      ]);
+      const cleanDni = String(contents.dni || '').replace(/\D/g, '').trim();
+      const cleanDate = String(contents.date || '').trim();
+      const cleanTime = String(contents.time || '').trim();
+      const cleanLib = String(contents.libreta || '').trim();
+      const cleanNom = String(contents.nombre || '').trim();
 
-      // Re-verificar que las fechas en la cabecera de la matriz estén al día
-      armarMatrizConFormulas(ss);
+      sheetAsist.appendRow([cleanDate, cleanTime, cleanDni, cleanLib, cleanNom]);
 
-      return ContentService.createTextOutput(JSON.stringify({ status: 'ok', message: 'Registrado' }))
+      // Actualizar matriz
+      try {
+        const fullData = obtenerDatosCompletos(ss);
+        armarMatriz(ss, fullData.padron, fullData.records);
+      } catch (_) {}
+
+      return ContentService.createTextOutput(JSON.stringify({ status: 'ok', message: 'Registrado con éxito' }))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -60,30 +81,39 @@ function doPost(e) {
       let sheetPadron = ss.getSheetByName('Padron');
       if (sheetPadron) sheetPadron.clearContents();
       else sheetPadron = ss.insertSheet('Padron');
-      
+
       sheetPadron.appendRow(['DNI', 'Libreta', 'Nombre_Apellido']);
-      if (data.padron && data.padron.length > 0) {
-        sheetPadron.getRange(2, 1, data.padron.length, 3).setValues(
-          data.padron.map(p => [String(p.dni).replace(/\D/g, '').trim(), String(p.libreta || ''), String(p.nombre)])
-        );
+      if (contents.padron && contents.padron.length > 0) {
+        const rows = contents.padron.map(p => [
+          String(p.dni).replace(/\D/g, '').trim(),
+          String(p.libreta || '').trim(),
+          String(p.nombre || '').trim()
+        ]);
+        sheetPadron.getRange(2, 1, rows.length, 3).setValues(rows);
       }
 
-      armarMatrizConFormulas(ss);
+      try {
+        const fullData = obtenerDatosCompletos(ss);
+        armarMatriz(ss, fullData.padron, fullData.records);
+      } catch (_) {}
 
-      return ContentService.createTextOutput(JSON.stringify({ status: 'ok', count: data.padron.length }))
+      return ContentService.createTextOutput(JSON.stringify({ status: 'ok', count: (contents.padron || []).length }))
         .setMimeType(ContentService.MimeType.JSON);
     }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: 'unknown_action' }))
+      .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', error: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
-// ── Helper para leer Padron y Asistencias limpiando formatos ──────
+// ── Lectura confiable de Padron y Asistencias ─────────────────────
 function obtenerDatosCompletos(ss) {
   const tz = Session.getScriptTimeZone();
 
-  // 1. Padrón
+  // 1. Padron
   let sheetPadron = ss.getSheetByName('Padron');
   if (!sheetPadron) {
     sheetPadron = ss.insertSheet('Padron');
@@ -124,10 +154,10 @@ function obtenerDatosCompletos(ss) {
 
       records.push({
         date: formattedDate,
-        time: String(aValues[i][1] || ''),
+        time: String(aValues[i][1] || '').trim(),
         dni: rawDni,
-        libreta: String(aValues[i][3] || ''),
-        nombre: String(aValues[i][4] || '')
+        libreta: String(aValues[i][3] || '').trim(),
+        nombre: String(aValues[i][4] || '').trim()
       });
     }
   }
@@ -135,122 +165,92 @@ function obtenerDatosCompletos(ss) {
   return { padron, records };
 }
 
-// ── Constructor de la Matriz con FÓRMULAS VIVAS de Google Sheets ───
-function armarMatrizConFormulas(ss) {
-  try {
-    let sheetMatriz = ss.getSheetByName('Matriz_Presentismo');
-    if (!sheetMatriz) {
-      sheetMatriz = ss.insertSheet('Matriz_Presentismo');
-    }
+// ── Constructor de Matriz_Presentismo ─────────────────────────────
+function armarMatriz(ss, padron, asistencias) {
+  let sheetMatriz = ss.getSheetByName('Matriz_Presentismo');
+  if (!sheetMatriz) {
+    sheetMatriz = ss.insertSheet('Matriz_Presentismo');
+  }
 
-    let sheetPadron = ss.getSheetByName('Padron');
-    let sheetAsist = ss.getSheetByName('Asistencias');
-    if (!sheetPadron) return;
+  if (!padron || padron.length === 0) return;
 
-    const numAlumnos = Math.max(0, sheetPadron.getLastRow() - 1);
-    if (numAlumnos === 0) return;
+  // Fechas únicas
+  const fechasSet = {};
+  asistencias.forEach(a => {
+    if (a.date) fechasSet[a.date] = true;
+  });
+  const fechas = Object.keys(fechasSet).sort();
 
-    // Obtener fechas únicas desde la hoja Asistencias
-    const tz = Session.getScriptTimeZone();
-    const fechasSet = {};
-    if (sheetAsist && sheetAsist.getLastRow() > 1) {
-      const aData = sheetAsist.getRange(2, 1, sheetAsist.getLastRow() - 1, 1).getValues();
-      aData.forEach(r => {
-        if (r[0]) {
-          let f = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd') : String(r[0]).trim();
-          if (f.includes('T')) f = f.split('T')[0];
-          if (f) fechasSet[f] = true;
-        }
-      });
-    }
-    const fechas = Object.keys(fechasSet).sort();
+  const headers = ['DNI', 'Libreta', 'Nombre y Apellido', ...fechas, 'Total Asistencias', '% Presentismo'];
+  const totalCols = headers.length;
 
-    // Encabezados
-    const headers = ['DNI', 'Libreta', 'Nombre y Apellido', ...fechas, 'Total Asistencias', '% Presentismo'];
-    const totalCols = headers.length;
+  // Mapa de asistencias por alumno: { dni: { fecha: true } }
+  const asistMap = {};
+  asistencias.forEach(a => {
+    const d = String(a.dni).replace(/\D/g, '').trim();
+    if (!asistMap[d]) asistMap[d] = {};
+    asistMap[d][a.date] = true;
+  });
 
-    // Construcción de la matriz con FÓRMULAS NATIVAS
-    const formulaRows = [];
-    for (let i = 2; i <= numAlumnos + 1; i++) {
-      const row = [];
-      // Columnas A, B, C enlazadas directamente con Padron
-      row.push(`=TO_TEXT(Padron!A${i})`);
-      row.push(`=TO_TEXT(Padron!B${i})`);
-      row.push(`=Padron!C${i}`);
-
-      // Fórmulas para cada fecha: =SI(CONTAR.SI.CONJUNTO(Asistencias!$C:$C; TO_TEXT($A2); Asistencias!$A:$A; D$1)>0; "✓"; "—")
-      fechas.forEach((f, idx) => {
-        const colLet = getColLetter(4 + idx);
-        row.push(`=IF(COUNTIFS(Asistencias!$C:$C, TO_TEXT($A${i}), Asistencias!$A:$A, ${colLet}$1)>0, "✓", "—")`);
-      });
-
-      // Total y % Presentismo
-      if (fechas.length > 0) {
-        const firstDateCol = getColLetter(4);
-        const lastDateCol = getColLetter(3 + fechas.length);
-        // Total = COUNTIF(D2:Z2, "✓")
-        row.push(`=COUNTIF(${firstDateCol}${i}:${lastDateCol}${i}, "✓")`);
-        // % = COUNTIF / total fechas
-        row.push(`=IF(COUNTA($${firstDateCol}$1:$${lastDateCol}$1)>0, COUNTIF(${firstDateCol}${i}:${lastDateCol}${i}, "✓")/COUNTA($${firstDateCol}$1:$${lastDateCol}$1), 0)`);
-      } else {
-        row.push(0);
-        row.push(0);
+  // Filas con valores calculados directamente (100% infalible en cualquier idioma de Sheets)
+  const rows = padron.map(s => {
+    const d = String(s.dni).replace(/\D/g, '').trim();
+    let total = 0;
+    const fechasCols = fechas.map(f => {
+      if (asistMap[d] && asistMap[d][f]) {
+        total++;
+        return '✓';
       }
+      return '—';
+    });
 
-      formulaRows.push(row);
-    }
+    const pct = fechas.length > 0 ? Math.round((total / fechas.length) * 100) + '%' : '0%';
 
-    sheetMatriz.clearContents();
+    return [
+      String(s.dni),
+      String(s.libreta || ''),
+      String(s.nombre || ''),
+      ...fechasCols,
+      total,
+      pct
+    ];
+  });
 
-    // Escribir cabecera
-    sheetMatriz.getRange(1, 1, 1, totalCols).setValues([headers]);
-    sheetMatriz.getRange(1, 1, 1, totalCols)
-      .setBackground('#1e1b4b')
-      .setFontColor('#ffffff')
-      .setFontWeight('bold')
-      .setHorizontalAlignment('center');
+  sheetMatriz.clearContents();
+  sheetMatriz.clearFormats();
 
-    // Escribir fórmulas en todas las celdas
-    sheetMatriz.getRange(2, 1, formulaRows.length, totalCols).setFormulas(formulaRows);
+  // Escribir cabecera
+  sheetMatriz.getRange(1, 1, 1, totalCols).setValues([headers]);
+  sheetMatriz.getRange(1, 1, 1, totalCols)
+    .setBackground('#1e1b4b')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
 
-    // Formatear columna de porcentaje
-    const pctColIdx = totalCols;
-    sheetMatriz.getRange(2, pctColIdx, formulaRows.length, 1).setNumberFormat('0.0%');
-
-    // Alineaciones
-    sheetMatriz.getRange(2, 1, formulaRows.length, 2).setHorizontalAlignment('center');
-    sheetMatriz.getRange(2, 3, formulaRows.length, 1).setHorizontalAlignment('left').setFontWeight('bold');
+  if (rows.length > 0) {
+    sheetMatriz.getRange(2, 1, rows.length, totalCols).setValues(rows);
+    sheetMatriz.getRange(2, 1, rows.length, 2).setHorizontalAlignment('center');
+    sheetMatriz.getRange(2, 3, rows.length, 1).setHorizontalAlignment('left').setFontWeight('bold');
     if (fechas.length > 0) {
-      sheetMatriz.getRange(2, 4, formulaRows.length, fechas.length).setHorizontalAlignment('center');
+      sheetMatriz.getRange(2, 4, rows.length, fechas.length).setHorizontalAlignment('center');
     }
-    sheetMatriz.getRange(2, totalCols - 1, formulaRows.length, 2).setHorizontalAlignment('center').setFontWeight('bold');
-
-    sheetMatriz.autoResizeColumns(1, totalCols);
-  } catch (err) {
-    Logger.log('Error armando matriz con fórmulas: ' + err.toString());
+    sheetMatriz.getRange(2, totalCols - 1, rows.length, 2).setHorizontalAlignment('center').setFontWeight('bold');
   }
+
+  sheetMatriz.autoResizeColumns(1, totalCols);
 }
 
-function getColLetter(col) {
-  let temp, letter = '';
-  while (col > 0) {
-    temp = (col - 1) % 26;
-    letter = String.fromCharCode(temp + 65) + letter;
-    col = (col - temp - 1) / 26;
-  }
-  return letter;
-}
-
-// ── Menú en Google Sheets ─────────────────────────────────────────
+// ── Menú de Google Sheets ─────────────────────────────────────────
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('📋 QR Asist')
-    .addItem('🔄 Actualizar Fórmulas de la Matriz', 'armarMatrizConFormulasMenu')
+    .addItem('🔄 Actualizar Matriz de Presentismo', 'menuActualizarMatriz')
     .addToUi();
 }
 
-function armarMatrizConFormulasMenu() {
+function menuActualizarMatriz() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  armarMatrizConFormulas(ss);
-  SpreadsheetApp.getUi().alert('✓ Matriz con fórmulas actualizada con éxito.');
+  const data = obtenerDatosCompletos(ss);
+  armarMatriz(ss, data.padron, data.records);
+  SpreadsheetApp.getUi().alert('✓ Matriz de presentismo actualizada.');
 }

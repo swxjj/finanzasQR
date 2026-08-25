@@ -476,7 +476,7 @@ function ProfesorView({
     const curRecords = recordsRef.current
     const snd = soundRef.current
 
-    const student = curRoster.find(s => s.dni === dni)
+    const student = curRoster.find(s => String(s.dni).replace(/\D/g, '').trim() === dni)
     if (!student) {
       if (snd) beep('err')
       showToast('error', `DNI ${dni} no está en el padrón.`)
@@ -484,7 +484,7 @@ function ProfesorView({
     }
 
     const today = todayISO()
-    const dup = curRecords.find(r => r.dni === dni && r.date === today)
+    const dup = curRecords.find(r => String(r.dni).replace(/\D/g, '').trim() === dni && normalizeDate(r.date) === today)
     if (dup) {
       if (snd) beep('dup')
       showToast('dup', `${student.nombre} ya tiene asistencia hoy (${dup.time}).`)
@@ -499,7 +499,7 @@ function ProfesorView({
   }, [showToast, setRecords, onPushAttendance])
 
   const today = todayISO()
-  const todayCount = useMemo(() => records.filter(r => r.date === today).length, [records, today])
+  const todayCount = useMemo(() => records.filter(r => normalizeDate(r.date) === today).length, [records, today])
 
   const tabs = [
     { id: 'scan', label: 'Escanear', icon: Camera },
@@ -742,11 +742,11 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return []
     const q = searchTerm.toLowerCase()
-    return roster.filter(s => s.nombre.toLowerCase().includes(q) || s.dni.includes(q)).slice(0, 8)
+    return roster.filter(s => s.nombre.toLowerCase().includes(q) || String(s.dni).includes(q)).slice(0, 8)
   }, [roster, searchTerm])
 
   const today = todayISO()
-  const todayList = useMemo(() => records.filter(r => r.date === today), [records, today])
+  const todayList = useMemo(() => records.filter(r => normalizeDate(r.date) === today), [records, today])
   const pct = totalRoster > 0 ? Math.round((todayCount / totalRoster) * 100) : 0
 
   return (
@@ -883,12 +883,17 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
 function ReportTab({ roster, records, setRecords, showToast }) {
   const [search, setSearch] = useState('')
 
-  const allDates = useMemo(() => Array.from(new Set(records.map(r => r.date))).sort(), [records])
+  const allDates = useMemo(() => Array.from(new Set(records.map(r => normalizeDate(r.date)).filter(Boolean))).sort(), [records])
 
   const matrix = useMemo(() => {
     const total = allDates.length
     return roster.map(s => {
-      const attended = new Set(records.filter(r => r.dni === s.dni).map(r => r.date))
+      const sDni = String(s.dni).replace(/\D/g, '').trim()
+      const attended = new Set(
+        records
+          .filter(r => String(r.dni).replace(/\D/g, '').trim() === sDni)
+          .map(r => normalizeDate(r.date))
+      )
       const cnt = attended.size
       const pct = total > 0 ? Math.round((cnt / total) * 100) : 0
       const perDate = {}
