@@ -186,15 +186,13 @@ export default function App() {
             date: normalizeDate(r.date)
           }))
 
-          // Merge: keep any local records not yet in remote (pending in queue)
-          setRecords(prev => {
-            const remoteKeys = new Set(remoteClean.map(r => `${String(r.dni).replace(/\D/g, '').trim()}_${r.date}`))
-            const localOnly = prev.filter(r => {
-              const key = `${String(r.dni).replace(/\D/g, '').trim()}_${normalizeDate(r.date)}`
-              return !remoteKeys.has(key)
-            })
-            return [...remoteClean, ...localOnly]
-          })
+          // Sheets es la fuente de la verdad. Solo agregamos lo que esté genuinamente encolado offline pendiente de envío
+          const queue = load(QUEUE_KEY, [])
+          const queuePending = queue.map(q => ({ ...q, date: normalizeDate(q.date) }))
+          const remoteKeys = new Set(remoteClean.map(r => `${String(r.dni).replace(/\D/g, '').trim()}_${r.date}`))
+          const unsentPending = queuePending.filter(p => !remoteKeys.has(`${String(p.dni).replace(/\D/g, '').trim()}_${p.date}`))
+
+          setRecords([...remoteClean, ...unsentPending])
         }
         if (!silent) showToast('ok', `☁️ Sincronizado: ${data.padron?.length || 0} alumnos, ${data.records?.length || 0} asistencias.`)
       }
