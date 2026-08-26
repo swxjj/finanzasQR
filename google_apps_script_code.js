@@ -1,5 +1,5 @@
 // ===================================================================
-// CÓDIGO PARA GOOGLE APPS SCRIPT (QR Asist - Versión Robusta y Estable)
+// CÓDIGO PARA GOOGLE APPS SCRIPT (finanzasQR - Versión Robusta y Estable)
 // ===================================================================
 // INSTRUCCIONES:
 // 1. Abrí tu Google Sheet.
@@ -358,7 +358,7 @@ function armarMatriz(ss, padron, asistencias) {
 // ── Menú de Google Sheets ─────────────────────────────────────────
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('📋 QR Asist')
+  ui.createMenu('📋 finanzasQR')
     .addItem('🔄 Actualizar Matriz de Presentismo', 'menuActualizarMatriz')
     .addToUi();
 }
