@@ -1,5 +1,5 @@
 {
-  "name": "finanzasQR — Control de Asistencia",
+  "name": "finanzasQR",
   "short_name": "finanzasQR",
   "description": "Sistema de Control de Asistencia y Pases Universitarios por Código QR",
   "start_url": "/",
