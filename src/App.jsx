@@ -316,7 +316,7 @@ export default function App() {
   if (!role) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 selection:bg-emerald-500/20">
-        <div className="w-full max-w-sm space-y-7 text-center animate-fade-in">
+        <div className="w-full max-w-sm space-y-7 text-center">
           {/* Logo Brandmark */}
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl" aria-hidden="true">
             <QrCode className="h-8 w-8 text-emerald-400" />
@@ -420,7 +420,7 @@ function LoginScreen({ onSuccess, onBack }) {
 
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-      <div className={`w-full max-w-sm ${shake ? 'animate-[shake_0.4s_ease-in-out]' : 'animate-fade-in'}`}>
+      <div className={`w-full max-w-sm ${shake ? 'animate-[shake_0.4s_ease-in-out]' : ''}`}>
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-7 shadow-2xl backdrop-blur-md">
           <div className="text-center mb-6">
             <div className="mx-auto h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-3" aria-hidden="true">
@@ -473,7 +473,7 @@ function LoginScreen({ onSuccess, onBack }) {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 animate-fade-in" role="alert">
+              <div className="flex items-center gap-2 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2" role="alert">
                 <XCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
               </div>
@@ -560,7 +560,7 @@ function AlumnoView({ onBack }) {
       </header>
 
       <main className="flex-1 flex items-center justify-center p-4 safe-bottom">
-        <div className="w-full max-w-sm space-y-4 animate-fade-in">
+        <div className="w-full max-w-sm space-y-4">
           {/* DNI Input Card with Live Dot Mask */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 shadow-xl">
             <label htmlFor="student-dni-input" className="block text-xs font-semibold text-zinc-300 mb-1.5 text-center">
@@ -586,7 +586,7 @@ function AlumnoView({ onBack }) {
 
           {/* Student Pass Card */}
           {isValidDni ? (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-6 shadow-2xl space-y-5 animate-slide-up text-center">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-6 shadow-2xl space-y-5 text-center">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3 text-[11px] text-zinc-400">
                 <span className="font-semibold text-zinc-300 uppercase tracking-wider">Pase de Asistencia</span>
                 <span className="inline-flex items-center gap-1 text-emerald-400 font-mono font-semibold" role="status">
@@ -862,7 +862,7 @@ function ProfesorView({
 
       {/* Floating Toast Notification */}
       {toast && (
-        <div className="print-hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md animate-fade-in" role="alert">
+        <div className="print-hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md" role="alert">
           <div className={`flex items-center gap-3 rounded-xl px-4 py-3 shadow-2xl border text-xs font-semibold backdrop-blur-xl ${
             toast.type === 'ok'  ? 'bg-zinc-900/95 border-emerald-500/40 text-emerald-300' :
             toast.type === 'dup' ? 'bg-zinc-900/95 border-amber-500/40 text-amber-300' :
@@ -958,7 +958,7 @@ function ProfesorView({
 // ── Empty roster placeholder ─────────────────────────────────────
 function EmptyRosterHint({ hasSheets, onPull }) {
   return (
-    <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/30 p-10 text-center space-y-4 animate-fade-in">
+    <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/30 p-10 text-center space-y-4">
       <FileSpreadsheet className="h-10 w-10 mx-auto text-zinc-600" aria-hidden="true" />
       <div className="space-y-1">
         <h3 className="text-sm font-bold text-zinc-200">Padrón no cargado</h3>
@@ -1092,7 +1092,7 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
   const pct = totalRoster > 0 ? Math.round((todayCount / totalRoster) * 100) : 0
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4">
       {/* 3 Metric Cards */}
       <div className="grid grid-cols-3 gap-2.5">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-3.5 text-center shadow-sm">
@@ -1105,7 +1105,7 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
             ? 'border-emerald-500/50 bg-emerald-500/15 ring-2 ring-emerald-500/30 scale-[1.02]'
             : 'border-emerald-500/20 bg-emerald-500/5'
         } p-3.5 text-center shadow-sm`}>
-          <div key={todayCount} className="text-xl font-extrabold font-mono text-emerald-400 animate-fade-in">
+          <div key={todayCount} className="text-xl font-extrabold font-mono text-emerald-400">
             {todayCount}
           </div>
           <div className="text-[11px] text-emerald-300/80 mt-0.5">Presentes Hoy</div>
@@ -1172,7 +1172,7 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
 
           {/* ⚡ Live Scanned Overlay Banner with Undo action */}
           {lastScan && (
-            <div className="absolute inset-x-3 bottom-3 z-20 animate-slide-up" role="status" aria-live="assertive">
+            <div className="absolute inset-x-3 bottom-3 z-20" role="status" aria-live="assertive">
               <div className={`p-3.5 rounded-xl shadow-2xl backdrop-blur-xl border flex items-center justify-between gap-3 ${
                 lastScan.type === 'ok'  ? 'bg-zinc-950/95 border-emerald-500/60 text-emerald-100 ring-1 ring-emerald-500/30' :
                 lastScan.type === 'dup' ? 'bg-zinc-950/95 border-amber-500/60 text-amber-100 ring-1 ring-amber-500/30' :
@@ -1435,7 +1435,7 @@ function ReportTab({ roster, records, setRecords, showToast }) {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4">
       {/* Header card with Excel Export & search */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -1518,7 +1518,7 @@ function ReportTab({ roster, records, setRecords, showToast }) {
       )}
 
       {filterRiskOnly && (
-        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 animate-fade-in" role="status">
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300" role="status">
           <span>Mostrando solo alumnos con regularidad en riesgo (&lt;80% asistencia).</span>
           <button
             onClick={() => setFilterRiskOnly(false)}
