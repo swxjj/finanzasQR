@@ -510,7 +510,7 @@ function AlumnoView({ onBack }) {
 
   useEffect(() => { save('qr_alumno_dni', rawDni) }, [rawDni])
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const svg = qrRef.current?.querySelector('svg')
     if (!svg) return
     const svgData = new XMLSerializer().serializeToString(svg)
@@ -520,16 +520,47 @@ function AlumnoView({ onBack }) {
     canvas.height = size
     const ctx2d = canvas.getContext('2d')
     const img = new Image()
+    
     img.onload = () => {
       ctx2d.fillStyle = '#ffffff'
       ctx2d.fillRect(0, 0, size, size)
       ctx2d.drawImage(img, 0, 0, size, size)
-      const a = document.createElement('a')
-      a.download = `QR_${rawDni || 'credencial'}.png`
-      a.href = canvas.toDataURL('image/png')
-      a.click()
-      setDownloaded(true)
-      setTimeout(() => setDownloaded(false), 2500)
+      
+      const fileName = `QR_${rawDni || 'credencial'}.png`
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) return
+
+        // 1. Native iOS / Mobile Share Sheet (allows "Guardar en Fotos" directly)
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          const file = new File([blob], fileName, { type: 'image/png' })
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: `Credencial finanzasQR - DNI ${rawDni}`
+              })
+              setDownloaded(true)
+              setTimeout(() => setDownloaded(false), 2500)
+              return
+            } catch (err) {
+              if (err.name === 'AbortError') return
+            }
+          }
+        }
+
+        // 2. Desktop / Android Fallback: ObjectURL with temporary <a>
+        const blobUrl = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.download = fileName
+        a.href = blobUrl
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1500)
+        setDownloaded(true)
+        setTimeout(() => setDownloaded(false), 2500)
+      }, 'image/png')
     }
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)))
   }
@@ -626,7 +657,7 @@ function AlumnoView({ onBack }) {
                 ) : (
                   <>
                     <Download className="h-4 w-4" aria-hidden="true" />
-                    <span>Descargar Pase como Imagen</span>
+                    <span>Descargar o Guardar Pase</span>
                   </>
                 )}
               </button>
