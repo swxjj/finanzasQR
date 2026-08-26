@@ -8,7 +8,7 @@ import {
   FileSpreadsheet, CheckCircle2, AlertCircle, XCircle, Volume2,
   VolumeX, BarChart3, GraduationCap, ScanLine, X, Clock, Percent,
   Cloud, CloudOff, RefreshCw, LogOut, Lock, Eye, EyeOff, WifiOff, ArrowLeft,
-  Undo2, Trash2, Filter
+  Undo2, Trash2, Filter, Check
 } from 'lucide-react'
 
 // ─── Config ────────────────────────────────────────────────────────
@@ -318,25 +318,22 @@ export default function App() {
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 selection:bg-emerald-500/20">
         <div className="w-full max-w-sm space-y-7 text-center animate-fade-in">
           {/* Logo Brandmark */}
-
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl">
+          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl" aria-hidden="true">
             <QrCode className="h-8 w-8 text-emerald-400" />
           </div>
 
-
           <div>
-
             <h1 className="text-[2rem] leading-9 font-extrabold text-zinc-100 tracking-tight">finanzasQR</h1>
-
           </div>
 
           <div className="grid gap-3 pt-1">
             <button
               onClick={() => setRole('profesor')}
-              className="w-full flex items-center justify-between p-4 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 text-left transition-all active:scale-[0.98] group"
+              aria-label="Ingresar como Docente para escanear QR y gestionar asistencia"
+              className="w-full flex items-center justify-between p-4 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 text-left transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 group"
             >
               <div className="flex items-center gap-3.5">
-                <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0" aria-hidden="true">
                   <GraduationCap className="h-5 w-5 text-emerald-400" />
                 </div>
                 <div>
@@ -344,15 +341,16 @@ export default function App() {
                   <div className="text-[11px] text-zinc-400 mt-0.5">Escanear QR y gestionar asistencia</div>
                 </div>
               </div>
-              <span className="text-xs font-semibold text-zinc-500 group-hover:text-zinc-300 font-mono">→</span>
+              <span className="text-xs font-semibold text-zinc-500 group-hover:text-zinc-300 font-mono" aria-hidden="true">→</span>
             </button>
 
             <button
               onClick={() => setRole('alumno')}
-              className="w-full flex items-center justify-between p-4 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 text-left transition-all active:scale-[0.98] group"
+              aria-label="Ingresar como Alumno/a para generar y descargar código QR"
+              className="w-full flex items-center justify-between p-4 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 text-left transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 group"
             >
               <div className="flex items-center gap-3.5">
-                <div className="h-10 w-10 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0">
+                <div className="h-10 w-10 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0" aria-hidden="true">
                   <QrCode className="h-5 w-5 text-zinc-300" />
                 </div>
                 <div>
@@ -360,13 +358,13 @@ export default function App() {
                   <div className="text-[11px] text-zinc-400 mt-0.5">Generar y descargar mi código QR</div>
                 </div>
               </div>
-              <span className="text-xs font-semibold text-zinc-500 group-hover:text-zinc-300 font-mono">→</span>
+              <span className="text-xs font-semibold text-zinc-500 group-hover:text-zinc-300 font-mono" aria-hidden="true">→</span>
             </button>
           </div>
 
           {!SHEETS_URL && (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20">
-              <CloudOff className="h-3 w-3" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20" role="status">
+              <CloudOff className="h-3 w-3" aria-hidden="true" />
               <span>Modo local (Sin Google Sheets)</span>
             </div>
           )}
@@ -425,7 +423,7 @@ function LoginScreen({ onSuccess, onBack }) {
       <div className={`w-full max-w-sm ${shake ? 'animate-[shake_0.4s_ease-in-out]' : 'animate-fade-in'}`}>
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-7 shadow-2xl backdrop-blur-md">
           <div className="text-center mb-6">
-            <div className="mx-auto h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-3">
+            <div className="mx-auto h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-3" aria-hidden="true">
               <Lock className="h-5 w-5 text-emerald-400" />
             </div>
             <h2 className="text-lg font-bold text-zinc-100">Acceso Docente</h2>
@@ -434,8 +432,11 @@ function LoginScreen({ onSuccess, onBack }) {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[11px] font-semibold text-zinc-300 mb-1">Usuario</label>
+              <label htmlFor="login-username" className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                Usuario
+              </label>
               <input
+                id="login-username"
                 type="text"
                 value={user}
                 onChange={e => { setUser(e.target.value); setError('') }}
@@ -447,9 +448,12 @@ function LoginScreen({ onSuccess, onBack }) {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-zinc-300 mb-1">Contraseña</label>
+              <label htmlFor="login-password" className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                Contraseña
+              </label>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPass ? 'text' : 'password'}
                   value={pass}
                   onChange={e => { setPass(e.target.value); setError('') }}
@@ -460,6 +464,7 @@ function LoginScreen({ onSuccess, onBack }) {
                 <button
                   type="button"
                   onClick={() => setShowPass(!showPass)}
+                  aria-label={showPass ? 'Ocultar contraseña' : 'Ver contraseña'}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-0.5"
                 >
                   {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -468,15 +473,15 @@ function LoginScreen({ onSuccess, onBack }) {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 animate-fade-in">
-                <XCircle className="h-4 w-4 shrink-0" />
+              <div className="flex items-center gap-2 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2 animate-fade-in" role="alert">
+                <XCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98]"
+              className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
             >
               Ingresar al Panel
             </button>
@@ -484,6 +489,7 @@ function LoginScreen({ onSuccess, onBack }) {
 
           <button
             onClick={onBack}
+            aria-label="Volver a la selección de roles"
             className="w-full mt-4 text-xs text-zinc-500 hover:text-zinc-300 text-center py-1 transition-colors"
           >
             ← Volver al inicio
@@ -499,6 +505,7 @@ function LoginScreen({ onSuccess, onBack }) {
 // ═══════════════════════════════════════════════════════════════════
 function AlumnoView({ onBack }) {
   const [rawDni, setRawDni] = useState(() => load('qr_alumno_dni', ''))
+  const [downloaded, setDownloaded] = useState(false)
   const qrRef = useRef(null)
 
   useEffect(() => { save('qr_alumno_dni', rawDni) }, [rawDni])
@@ -521,6 +528,8 @@ function AlumnoView({ onBack }) {
       a.download = `QR_${rawDni || 'credencial'}.png`
       a.href = canvas.toDataURL('image/png')
       a.click()
+      setDownloaded(true)
+      setTimeout(() => setDownloaded(false), 2500)
     }
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)))
   }
@@ -539,9 +548,10 @@ function AlumnoView({ onBack }) {
         <div className="max-w-md mx-auto flex items-center justify-between">
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 transition-colors py-1"
+            aria-label="Volver a la selección de roles"
+            className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 transition-colors py-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             <span>Volver</span>
           </button>
           <div className="text-xs font-bold text-zinc-200">Credencial Digital</div>
@@ -553,10 +563,11 @@ function AlumnoView({ onBack }) {
         <div className="w-full max-w-sm space-y-4 animate-fade-in">
           {/* DNI Input Card with Live Dot Mask */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 shadow-xl">
-            <label className="block text-xs font-semibold text-zinc-300 mb-1.5 text-center">
+            <label htmlFor="student-dni-input" className="block text-xs font-semibold text-zinc-300 mb-1.5 text-center">
               Ingresá tu número de DNI
             </label>
             <input
+              id="student-dni-input"
               type="text"
               inputMode="numeric"
               value={formatDniDisplay(rawDni)}
@@ -564,9 +575,11 @@ function AlumnoView({ onBack }) {
               placeholder="Ej: 45.123.456"
               maxLength={10}
               autoFocus
+              aria-describedby="dni-format-hint"
+              aria-label="Número de Documento Nacional de Identidad"
               className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-xl font-mono font-bold text-zinc-100 placeholder-zinc-600 text-center tracking-wider focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/80 transition-all"
             />
-            <p className="text-[10px] text-zinc-500 text-center mt-1.5">
+            <p id="dni-format-hint" className="text-[10px] text-zinc-500 text-center mt-1.5">
               Sin puntos ni espacios • Se formatea automáticamente
             </p>
           </div>
@@ -576,8 +589,8 @@ function AlumnoView({ onBack }) {
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-6 shadow-2xl space-y-5 animate-slide-up text-center">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3 text-[11px] text-zinc-400">
                 <span className="font-semibold text-zinc-300 uppercase tracking-wider">Pase de Asistencia</span>
-                <span className="inline-flex items-center gap-1 text-emerald-400 font-mono font-semibold">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="inline-flex items-center gap-1 text-emerald-400 font-mono font-semibold" role="status">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
                   Activo
                 </span>
               </div>
@@ -585,7 +598,7 @@ function AlumnoView({ onBack }) {
               {/* QR Container with High Contrast */}
               <div ref={qrRef} className="flex justify-center py-1">
                 <div className="bg-white p-4 rounded-xl shadow-lg inline-block">
-                  <QRCodeSVG value={rawDni} size={200} level="H" includeMargin />
+                  <QRCodeSVG value={rawDni} size={200} level="H" includeMargin aria-label={`Código QR para DNI ${rawDni}`} />
                 </div>
               </div>
 
@@ -598,15 +611,29 @@ function AlumnoView({ onBack }) {
 
               <button
                 onClick={handleDownload}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98]"
+                aria-label={`Descargar credencial universitaria en formato PNG para DNI ${rawDni}`}
+                className={`w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold shadow-lg transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+                  downloaded
+                    ? 'bg-emerald-700 text-white shadow-emerald-700/20'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                }`}
               >
-                <Download className="h-4 w-4" />
-                Descargar Pase como Imagen
+                {downloaded ? (
+                  <>
+                    <Check className="h-4 w-4" aria-hidden="true" />
+                    <span>¡Pase Descargado!</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    <span>Descargar Pase como Imagen</span>
+                  </>
+                )}
               </button>
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/40 p-8 text-center space-y-2 text-zinc-500">
-              <QrCode className="h-10 w-10 mx-auto opacity-30" />
+              <QrCode className="h-10 w-10 mx-auto opacity-30" aria-hidden="true" />
               <p className="text-xs">Ingresá al menos 7 dígitos para generar tu código QR de asistencia.</p>
             </div>
           )}
@@ -728,7 +755,7 @@ function ProfesorView({
       <header className="print-hidden sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-xl">
         <div className="max-w-4xl mx-auto px-4 flex items-center justify-between h-14">
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center" aria-hidden="true">
               <QrCode className="h-4 w-4 text-emerald-400" />
             </div>
             <span className="font-extrabold text-sm text-zinc-100 tracking-tight hidden sm:inline">finanzasQR</span>
@@ -742,13 +769,13 @@ function ProfesorView({
                 : isOnline
                   ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
                   : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-            }`}>
+            }`} role="status">
               {!SHEETS_URL ? (
-                <CloudOff className="h-3 w-3" />
+                <CloudOff className="h-3 w-3" aria-hidden="true" />
               ) : isOnline ? (
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
               ) : (
-                <WifiOff className="h-3 w-3" />
+                <WifiOff className="h-3 w-3" aria-hidden="true" />
               )}
               <span className="hidden xs:inline font-mono">
                 {!SHEETS_URL ? 'Offline' : isOnline ? (isSyncing ? 'Sincronizando...' : 'Sheets ✓') : 'Sin red'}
@@ -760,8 +787,10 @@ function ProfesorView({
               <div
                 className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 animate-pulse"
                 title={`${pendingCount} asistencia(s) en cola`}
+                role="status"
+                aria-label={`${pendingCount} asistencias pendientes de sincronización`}
               >
-                <CloudOff className="h-3 w-3" />
+                <CloudOff className="h-3 w-3" aria-hidden="true" />
                 <span>{pendingCount}</span>
               </div>
             )}
@@ -771,53 +800,59 @@ function ProfesorView({
               <button
                 onClick={() => onPull(false)}
                 disabled={isSyncing}
+                aria-label="Sincronizar datos con Google Sheets"
                 title="Sincronizar ahora"
-                className="p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+                className="p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
               >
-                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin text-emerald-400' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin text-emerald-400' : ''}`} aria-hidden="true" />
               </button>
             )}
 
             {/* Sound toggle */}
             <button
               onClick={() => setSoundOn(!soundOn)}
+              aria-label={soundOn ? 'Silenciar alertas sonoras' : 'Activar alertas sonoras'}
               title={soundOn ? 'Silenciar' : 'Activar sonido'}
-              className={`p-2 rounded-lg transition-colors border ${
+              className={`p-2 rounded-lg transition-colors border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 ${
                 soundOn
                   ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
                   : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border-transparent'
               }`}
             >
-              {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              {soundOn ? <Volume2 className="h-4 w-4" aria-hidden="true" /> : <VolumeX className="h-4 w-4" aria-hidden="true" />}
             </button>
 
             {/* Logout */}
             <button
               onClick={onLogout}
+              aria-label="Cerrar sesión de docente"
               title="Cerrar sesión"
-              className="p-2 rounded-lg text-zinc-400 hover:text-rose-300 hover:bg-zinc-900 border border-transparent transition-colors"
+              className="p-2 rounded-lg text-zinc-400 hover:text-rose-300 hover:bg-zinc-900 border border-transparent transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-500"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         </div>
 
         {/* Minimal Tab Bar */}
-        <div className="max-w-4xl mx-auto px-4 flex gap-1.5 pb-2">
+        <div className="max-w-4xl mx-auto px-4 flex gap-1.5 pb-2" role="tablist" aria-label="Secciones del panel docente">
           {tabs.map(t => {
             const Icon = t.icon
             const active = tab === t.id
             return (
               <button
                 key={t.id}
+                role="tab"
+                aria-selected={active}
+                aria-controls={`tabpanel-${t.id}`}
                 onClick={() => setTab(t.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                   active
                     ? 'bg-zinc-800 text-zinc-100 border border-zinc-750 shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
                 }`}
               >
-                <Icon className={`h-4 w-4 ${active ? 'text-emerald-400' : 'text-zinc-500'}`} />
+                <Icon className={`h-4 w-4 ${active ? 'text-emerald-400' : 'text-zinc-500'}`} aria-hidden="true" />
                 <span>{t.label}</span>
               </button>
             )
@@ -827,18 +862,18 @@ function ProfesorView({
 
       {/* Floating Toast Notification */}
       {toast && (
-        <div className="print-hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md animate-fade-in">
+        <div className="print-hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md animate-fade-in" role="alert">
           <div className={`flex items-center gap-3 rounded-xl px-4 py-3 shadow-2xl border text-xs font-semibold backdrop-blur-xl ${
             toast.type === 'ok'  ? 'bg-zinc-900/95 border-emerald-500/40 text-emerald-300' :
             toast.type === 'dup' ? 'bg-zinc-900/95 border-amber-500/40 text-amber-300' :
                                    'bg-zinc-900/95 border-rose-500/40 text-rose-300'
           }`}>
-            {toast.type === 'ok'  && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />}
-            {toast.type === 'dup' && <AlertCircle  className="h-4 w-4 text-amber-400 shrink-0" />}
-            {toast.type === 'error' && <XCircle    className="h-4 w-4 text-rose-400 shrink-0" />}
+            {toast.type === 'ok'  && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" aria-hidden="true" />}
+            {toast.type === 'dup' && <AlertCircle  className="h-4 w-4 text-amber-400 shrink-0" aria-hidden="true" />}
+            {toast.type === 'error' && <XCircle    className="h-4 w-4 text-rose-400 shrink-0" aria-hidden="true" />}
             <span className="flex-1 truncate">{toast.text}</span>
-            <button onClick={() => setToast(null)} className="shrink-0 text-zinc-500 hover:text-zinc-200">
-              <X className="h-3.5 w-3.5" />
+            <button onClick={() => setToast(null)} aria-label="Cerrar notificación" className="shrink-0 text-zinc-500 hover:text-zinc-200">
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -850,14 +885,14 @@ function ProfesorView({
         <div className="print-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3.5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs">
-              <Users className="h-4 w-4 text-zinc-400" />
+              <Users className="h-4 w-4 text-zinc-400" aria-hidden="true" />
               <span className="text-zinc-400">Padrón:</span>
               <span className="font-mono font-bold text-zinc-100">{roster.length}</span>
               <span className="text-zinc-500">alumnos</span>
               {roster.length > 0 && (
                 <>
-                  <span className="text-zinc-700">|</span>
-                  <UserCheck className="h-4 w-4 text-emerald-400" />
+                  <span className="text-zinc-700" aria-hidden="true">|</span>
+                  <UserCheck className="h-4 w-4 text-emerald-400" aria-hidden="true" />
                   <span className="font-mono font-bold text-emerald-400">{todayCount}</span>
                   <span className="text-zinc-500">presentes hoy</span>
                 </>
@@ -869,17 +904,18 @@ function ProfesorView({
                 <button
                   onClick={() => onPull(false)}
                   disabled={isSyncing}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition-colors"
+                  aria-label="Sincronizar padrón y asistencias desde Sheets"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
                 >
-                  <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin text-emerald-400' : ''}`} />
+                  <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin text-emerald-400' : ''}`} aria-hidden="true" />
                   <span>Sincronizar</span>
                 </button>
               )}
 
-              <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-zinc-100 hover:bg-white px-3.5 py-1.5 text-xs font-bold text-zinc-950 transition-all active:scale-[0.98]">
-                <Upload className="h-3.5 w-3.5" />
+              <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-zinc-100 hover:bg-white px-3.5 py-1.5 text-xs font-bold text-zinc-950 transition-all active:scale-[0.98] focus-within:ring-2 focus-within:ring-emerald-500">
+                <Upload className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{roster.length ? 'Actualizar CSV' : 'Cargar Padrón'}</span>
-                <input type="file" accept=".csv" onChange={handleCSV} className="hidden" />
+                <input type="file" accept=".csv" onChange={handleCSV} className="hidden" aria-label="Subir archivo CSV con padrón de alumnos" />
               </label>
             </div>
           </div>
@@ -888,23 +924,27 @@ function ProfesorView({
         {roster.length === 0 ? (
           <EmptyRosterHint hasSheets={Boolean(SHEETS_URL)} onPull={() => onPull(false)} />
         ) : tab === 'scan' ? (
-          <ScanTab
-            roster={roster}
-            records={records}
-            registerDni={registerDni}
-            onDeleteAttendance={onDeleteAttendance}
-            todayCount={todayCount}
-            totalRoster={roster.length}
-            lastScan={lastScan}
-            setLastScan={setLastScan}
-          />
+          <div id="tabpanel-scan" role="tabpanel" aria-label="Escáner y registro de asistencia">
+            <ScanTab
+              roster={roster}
+              records={records}
+              registerDni={registerDni}
+              onDeleteAttendance={onDeleteAttendance}
+              todayCount={todayCount}
+              totalRoster={roster.length}
+              lastScan={lastScan}
+              setLastScan={setLastScan}
+            />
+          </div>
         ) : (
-          <ReportTab
-            roster={roster}
-            records={records}
-            setRecords={setRecords}
-            showToast={showToast}
-          />
+          <div id="tabpanel-report" role="tabpanel" aria-label="Matriz consolidada de presentismo">
+            <ReportTab
+              roster={roster}
+              records={records}
+              setRecords={setRecords}
+              showToast={showToast}
+            />
+          </div>
         )}
       </main>
 
@@ -919,7 +959,7 @@ function ProfesorView({
 function EmptyRosterHint({ hasSheets, onPull }) {
   return (
     <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/30 p-10 text-center space-y-4 animate-fade-in">
-      <FileSpreadsheet className="h-10 w-10 mx-auto text-zinc-600" />
+      <FileSpreadsheet className="h-10 w-10 mx-auto text-zinc-600" aria-hidden="true" />
       <div className="space-y-1">
         <h3 className="text-sm font-bold text-zinc-200">Padrón no cargado</h3>
         <p className="text-xs text-zinc-500 max-w-sm mx-auto">
@@ -932,9 +972,9 @@ function EmptyRosterHint({ hasSheets, onPull }) {
       {hasSheets && (
         <button
           onClick={onPull}
-          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition-all"
+          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
         >
-          <Cloud className="h-4 w-4" />
+          <Cloud className="h-4 w-4" aria-hidden="true" />
           <span>Cargar desde Google Sheets</span>
         </button>
       )}
@@ -957,10 +997,26 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
   const [manualDni, setManualDni] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const scannerRef = useRef(null)
+  const searchInputRef = useRef(null)
   const containerId = 'qr-reader'
   const processingRef = useRef(false)
 
   useEffect(() => { return () => { stopScanner() } }, [])
+
+  // Keyboard shortcut: '/' focuses search, 'Escape' clears
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+      } else if (e.key === 'Escape' && document.activeElement === searchInputRef.current) {
+        setSearchTerm('')
+        searchInputRef.current?.blur()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // Boot camera when container becomes ready
   useEffect(() => {
@@ -1065,12 +1121,12 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 shadow-xl">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <ScanLine className="h-4 w-4 text-emerald-400" />
+            <ScanLine className="h-4 w-4 text-emerald-400" aria-hidden="true" />
             <h2 className="text-xs font-bold text-zinc-100 uppercase tracking-wider">Escáner de Asistencia</h2>
           </div>
           {scanning && (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-emerald-400 font-semibold">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-emerald-400 font-semibold" role="status">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
               Cámara activa
             </span>
           )}
@@ -1086,7 +1142,7 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
 
           {!scanning && !containerReady && (
             <div className="flex flex-col items-center p-8 text-center space-y-3">
-              <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 shadow-inner">
+              <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 shadow-inner" aria-hidden="true">
                 <Camera className="h-8 w-8 text-zinc-400" />
               </div>
               <p className="text-xs text-zinc-400 max-w-xs">
@@ -1094,9 +1150,10 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
               </p>
               <button
                 onClick={startScanner}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98]"
+                aria-label="Iniciar cámara para escanear códigos QR"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
               >
-                <Camera className="h-4 w-4" />
+                <Camera className="h-4 w-4" aria-hidden="true" />
                 <span>Iniciar Cámara</span>
               </button>
             </div>
@@ -1105,16 +1162,17 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
           {scanning && (
             <button
               onClick={stopScanner}
-              className="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-700 px-2.5 py-1 text-[11px] font-semibold text-zinc-200 backdrop-blur-md transition-colors"
+              aria-label="Detener cámara de escaneo"
+              className="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-700 px-2.5 py-1 text-[11px] font-semibold text-zinc-200 backdrop-blur-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
             >
-              <CameraOff className="h-3 w-3" />
+              <CameraOff className="h-3 w-3" aria-hidden="true" />
               <span>Detener</span>
             </button>
           )}
 
           {/* ⚡ Live Scanned Overlay Banner with Undo action */}
           {lastScan && (
-            <div className="absolute inset-x-3 bottom-3 z-20 animate-slide-up">
+            <div className="absolute inset-x-3 bottom-3 z-20 animate-slide-up" role="status" aria-live="assertive">
               <div className={`p-3.5 rounded-xl shadow-2xl backdrop-blur-xl border flex items-center justify-between gap-3 ${
                 lastScan.type === 'ok'  ? 'bg-zinc-950/95 border-emerald-500/60 text-emerald-100 ring-1 ring-emerald-500/30' :
                 lastScan.type === 'dup' ? 'bg-zinc-950/95 border-amber-500/60 text-amber-100 ring-1 ring-amber-500/30' :
@@ -1125,7 +1183,7 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
                     lastScan.type === 'ok'  ? 'bg-emerald-500/20 text-emerald-400' :
                     lastScan.type === 'dup' ? 'bg-amber-500/20 text-amber-400' :
                                               'bg-rose-500/20 text-rose-400'
-                  }`}>
+                  }`} aria-hidden="true">
                     {lastScan.type === 'ok'  && <CheckCircle2 className="h-5 w-5" />}
                     {lastScan.type === 'dup' && <AlertCircle className="h-5 w-5" />}
                     {lastScan.type === 'error' && <XCircle className="h-5 w-5" />}
@@ -1155,10 +1213,11 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
                       onDeleteAttendance(lastScan.dni, lastScan.date || todayISO())
                       setLastScan(null)
                     }}
+                    aria-label={`Deshacer registro de asistencia de ${lastScan.student?.nombre || lastScan.dni}`}
                     title="Anular este registro"
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-2.5 py-1.5 rounded-lg transition-colors shrink-0"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-2.5 py-1.5 rounded-lg transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-400"
                   >
-                    <Undo2 className="h-3 w-3" />
+                    <Undo2 className="h-3 w-3" aria-hidden="true" />
                     <span>Deshacer</span>
                   </button>
                 )}
@@ -1170,48 +1229,60 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
 
       {/* Manual Input Form */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 shadow-sm">
-        <h3 className="text-xs font-bold text-zinc-300 mb-2 flex items-center gap-1.5">
-          <UserCheck className="h-3.5 w-3.5 text-emerald-400" />
+        <label htmlFor="manual-dni-input" className="text-xs font-bold text-zinc-300 mb-2 flex items-center gap-1.5">
+          <UserCheck className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
           <span>Ingreso manual por DNI</span>
-        </h3>
+        </label>
         <form onSubmit={handleManual} className="flex gap-2">
           <input
+            id="manual-dni-input"
             type="text"
             inputMode="numeric"
             value={manualDni}
             onChange={e => setManualDni(e.target.value.replace(/\D/g, ''))}
             placeholder="Número de DNI..."
             maxLength={10}
+            aria-label="Número de DNI para registrar asistencia"
             className="flex-1 rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-xs font-mono text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/80 transition-all"
           />
           <button
             type="submit"
-            className="rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-4 py-2 text-xs font-bold text-zinc-100 transition-colors"
+            aria-label="Registrar asistencia por DNI manual"
+            className="rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-4 py-2 text-xs font-bold text-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
           >
             Registrar
           </button>
         </form>
       </div>
 
-      {/* Quick Search Student */}
+      {/* Quick Search Student with '/' shortcut */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 shadow-sm">
-        <h3 className="text-xs font-bold text-zinc-300 mb-2 flex items-center gap-1.5">
-          <Search className="h-3.5 w-3.5 text-emerald-400" />
-          <span>Buscar alumno en padrón</span>
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <label htmlFor="roster-search-input" className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+            <Search className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
+            <span>Buscar alumno en padrón</span>
+          </label>
+          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-zinc-500 bg-zinc-950 border border-zinc-800 rounded">
+            presioná /
+          </kbd>
+        </div>
+
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />
           <input
+            id="roster-search-input"
+            ref={searchInputRef}
             type="text"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Escribí nombre o DNI..."
+            aria-label="Buscar alumno por nombre o número de DNI"
             className="w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-9 pr-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/80 transition-all"
           />
         </div>
 
         {searchResults.length > 0 && (
-          <div className="mt-2 space-y-1 max-h-[220px] overflow-y-auto">
+          <div className="mt-2 space-y-1 max-h-[220px] overflow-y-auto" role="listbox" aria-label="Resultados de búsqueda">
             {searchResults.map(s => {
               const present = records.some(r => r.dni === s.dni && r.date === today)
               return (
@@ -1225,21 +1296,23 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
                   </div>
                   {present ? (
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+                      <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded" role="status">
                         PRESENTE
                       </span>
                       <button
                         onClick={() => onDeleteAttendance(s.dni, today)}
+                        aria-label={`Anular asistencia de ${s.nombre}`}
                         title="Anular asistencia de hoy"
-                        className="p-1 rounded text-zinc-500 hover:text-rose-400 transition-colors"
+                        className="p-1 rounded text-zinc-400 hover:text-rose-300 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-400"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => registerDni(s.dni)}
-                      className="text-[10px] font-bold text-zinc-200 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-2.5 py-1 rounded transition-colors shrink-0"
+                      aria-label={`Registrar asistencia de ${s.nombre}`}
+                      className="text-[10px] font-bold text-zinc-200 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-2.5 py-1 rounded transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400"
                     >
                       REGISTRAR
                     </button>
@@ -1255,7 +1328,7 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
       {todayList.length > 0 && (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 shadow-sm">
           <h3 className="text-xs font-bold text-zinc-100 mb-2.5 flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 text-emerald-400" />
+            <Clock className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
             <span>Asistencias registradas hoy ({todayList.length})</span>
           </h3>
           <div className="space-y-1 max-h-[220px] overflow-y-auto pr-1">
@@ -1272,10 +1345,11 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
                   <span className="text-[11px] text-zinc-400 font-mono">{r.time}</span>
                   <button
                     onClick={() => onDeleteAttendance(r.dni, r.date || today)}
+                    aria-label={`Anular asistencia de ${r.nombre}`}
                     title="Anular esta asistencia"
-                    className="p-1 rounded text-zinc-400 hover:text-rose-300 hover:bg-zinc-900 transition-colors"
+                    className="p-1 rounded text-zinc-400 hover:text-rose-300 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-400"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -1293,6 +1367,22 @@ function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount,
 function ReportTab({ roster, records, setRecords, showToast }) {
   const [search, setSearch] = useState('')
   const [filterRiskOnly, setFilterRiskOnly] = useState(false)
+  const matrixSearchRef = useRef(null)
+
+  // Keyboard shortcut: '/' focuses search, 'Escape' clears
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault()
+        matrixSearchRef.current?.focus()
+      } else if (e.key === 'Escape' && document.activeElement === matrixSearchRef.current) {
+        setSearch('')
+        matrixSearchRef.current?.blur()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const allDates = useMemo(() => Array.from(new Set(records.map(r => normalizeDate(r.date)).filter(Boolean))).sort(), [records])
 
@@ -1351,7 +1441,7 @@ function ReportTab({ roster, records, setRecords, showToast }) {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div>
             <h2 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-emerald-400" />
+              <BarChart3 className="h-4 w-4 text-emerald-400" aria-hidden="true" />
               <span>Matriz Consolidada de Presentismo</span>
             </h2>
             <p className="text-[11px] text-zinc-400 mt-0.5">
@@ -1361,20 +1451,24 @@ function ReportTab({ roster, records, setRecords, showToast }) {
 
           <button
             onClick={handleExportXLSX}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-600/20 transition-all active:scale-[0.98]"
+            aria-label="Descargar matriz de asistencias en formato Excel"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-600/20 transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Descargar Excel (.xlsx)</span>
           </button>
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" aria-hidden="true" />
           <input
+            id="matrix-search-input"
+            ref={matrixSearchRef}
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Filtrar matriz por nombre o DNI..."
+            placeholder="Filtrar matriz por nombre o DNI... (presioná /)"
+            aria-label="Filtrar matriz de asistencias por nombre o DNI"
             className="w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-9 pr-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/80 transition-all"
           />
         </div>
@@ -1403,8 +1497,10 @@ function ReportTab({ roster, records, setRecords, showToast }) {
           {/* Interactive <80% Risk Filter Button */}
           <button
             onClick={() => setFilterRiskOnly(!filterRiskOnly)}
+            aria-pressed={filterRiskOnly}
+            aria-label="Filtrar únicamente alumnos en riesgo con asistencia menor al 80%"
             title="Filtrar solo alumnos en riesgo (<80% asistencia)"
-            className={`rounded-xl border p-3 text-center transition-all cursor-pointer ${
+            className={`rounded-xl border p-3 text-center transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 ${
               filterRiskOnly
                 ? 'border-rose-500 bg-rose-500/20 ring-2 ring-rose-500/40 shadow-lg shadow-rose-500/20'
                 : 'border-rose-500/20 bg-rose-500/5 hover:border-rose-500/40 hover:bg-rose-500/10'
@@ -1412,7 +1508,7 @@ function ReportTab({ roster, records, setRecords, showToast }) {
           >
             <div className="flex items-center justify-center gap-1">
               <span className="text-base font-extrabold font-mono text-rose-400">{riskCount}</span>
-              <Filter className={`h-3 w-3 ${filterRiskOnly ? 'text-rose-300' : 'text-rose-400/60'}`} />
+              <Filter className={`h-3 w-3 ${filterRiskOnly ? 'text-rose-300' : 'text-rose-400/60'}`} aria-hidden="true" />
             </div>
             <div className="text-[10px] text-rose-300/80 mt-0.5">
               {filterRiskOnly ? 'Filtrando <80%' : '<80% (En riesgo)'}
@@ -1422,11 +1518,12 @@ function ReportTab({ roster, records, setRecords, showToast }) {
       )}
 
       {filterRiskOnly && (
-        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 animate-fade-in">
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 animate-fade-in" role="status">
           <span>Mostrando solo alumnos con regularidad en riesgo (&lt;80% asistencia).</span>
           <button
             onClick={() => setFilterRiskOnly(false)}
-            className="font-bold underline hover:text-white transition-colors"
+            aria-label="Quitar filtro y ver todos los alumnos"
+            className="font-bold underline hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-400 rounded"
           >
             Ver todos
           </button>
@@ -1441,35 +1538,35 @@ function ReportTab({ roster, records, setRecords, showToast }) {
       ) : (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 shadow-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs" aria-label="Matriz consolidada de presentismo">
               <thead className="bg-zinc-950 text-zinc-400 border-b border-zinc-800 font-semibold uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-3.5 sticky left-0 bg-zinc-950 z-10">Alumno</th>
-                  <th className="py-3 px-3 font-mono">DNI</th>
+                  <th scope="col" className="py-3 px-3.5 sticky left-0 bg-zinc-950 z-10">Alumno</th>
+                  <th scope="col" className="py-3 px-3 font-mono">DNI</th>
                   {allDates.map(d => (
-                    <th key={d} className="py-3 px-2 text-center whitespace-nowrap font-mono">
+                    <th scope="col" key={d} className="py-3 px-2 text-center whitespace-nowrap font-mono">
                       {d.slice(5)}
                     </th>
                   ))}
-                  <th className="py-3 px-3 text-center font-mono">Total</th>
-                  <th className="py-3 px-3 text-center font-mono">%</th>
+                  <th scope="col" className="py-3 px-3 text-center font-mono">Total</th>
+                  <th scope="col" className="py-3 px-3 text-center font-mono">%</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-850">
                 {filtered.map(s => (
                   <tr key={s.dni} className="hover:bg-zinc-800/40 transition-colors">
-                    <td className="py-2.5 px-3.5 font-semibold text-zinc-100 whitespace-nowrap sticky left-0 bg-zinc-900/95 z-10">
+                    <th scope="row" className="py-2.5 px-3.5 font-semibold text-zinc-100 whitespace-nowrap sticky left-0 bg-zinc-900/95 z-10 text-left font-normal">
                       {s.nombre}
-                    </td>
+                    </th>
                     <td className="py-2.5 px-3 font-mono text-zinc-400">{s.dni}</td>
                     {allDates.map(d => (
                       <td key={d} className="py-2.5 px-2 text-center">
                         {s.perDate[d] ? (
-                          <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-emerald-500/20 text-emerald-400 text-[11px] font-bold">
+                          <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-emerald-500/20 text-emerald-400 text-[11px] font-bold" aria-label={`Presente el ${d}`}>
                             ✓
                           </span>
                         ) : (
-                          <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-zinc-850 text-zinc-600 text-[11px]">
+                          <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-zinc-850 text-zinc-600 text-[11px]" aria-label={`Ausente el ${d}`}>
                             —
                           </span>
                         )}
@@ -1480,8 +1577,8 @@ function ReportTab({ roster, records, setRecords, showToast }) {
                       <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${
                         s.pct >= 80 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                                       'bg-rose-500/10 text-rose-400 border border-rose-500/20 font-extrabold'
-                      }`}>
-                        <Percent className="h-2.5 w-2.5" />
+                      }`} aria-label={`Porcentaje de asistencia: ${s.pct}%`}>
+                        <Percent className="h-2.5 w-2.5" aria-hidden="true" />
                         {s.pct}
                       </span>
                     </td>

@@ -9,6 +9,7 @@ colors:
   neutral-surface: "#18181b"
   neutral-surface-hover: "#202023"
   neutral-border: "#27272a"
+  neutral-border-hover: "#3f3f46"
   neutral-text: "#f4f4f5"
   neutral-muted: "#a1a1aa"
   alert-rose: "#f43f5e"
@@ -16,10 +17,10 @@ colors:
 typography:
   display:
     fontFamily: "'DM Sans', system-ui, sans-serif"
-    fontSize: "1.5rem"
+    fontSize: "2rem"
     fontWeight: 800
-    lineHeight: 1.2
-    letterSpacing: "-0.025em"
+    lineHeight: 1.15
+    letterSpacing: "-0.03em"
   headline:
     fontFamily: "'DM Sans', system-ui, sans-serif"
     fontSize: "1.125rem"
@@ -36,6 +37,10 @@ typography:
     fontSize: "0.6875rem"
     fontWeight: 700
     letterSpacing: "0.05em"
+  micro:
+    fontFamily: "'DM Sans', system-ui, sans-serif"
+    fontSize: "0.625rem"
+    fontWeight: 700
   mono:
     fontFamily: "'JetBrains Mono', monospace"
     fontSize: "0.875rem"
@@ -106,6 +111,7 @@ La paleta es sobria, táctica y de contraste estricto con fondo oscuro profundo.
 - **Headline** (700 weight, 1.125rem, line-height 1.3): Títulos de sección y tarjetas de rol.
 - **Body** (500 weight, 0.875rem, line-height 1.5): Textos de interfaz, listas y descripciones breves.
 - **Label** (700 weight, 0.6875rem, letter-spacing 0.05em): Encabezados de tabla y badges de estado.
+- **Micro** (700 weight, 0.625rem / 10px): Sub-etiquetas de métricas y chips compactos de tabla.
 - **Mono Data** (700 weight, font-mono): DNIs, porcentajes de asistencia, libretas y horas.
 
 ## Layout
