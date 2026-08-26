@@ -16,6 +16,26 @@ const SHEETS_URL = import.meta.env.VITE_SHEETS_API_URL || ''
 const PROF_USER = import.meta.env.VITE_PROF_USER || 'admin'
 const PROF_PASS = import.meta.env.VITE_PROF_PASS || 'docente2026'
 
+// ─── Custom Brand QR Icon ──────────────────────────────────────────
+function BrandQrIcon({ className = 'h-6 w-6', ...props }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M5,15v2H3V15ZM3,21H5V19H3Zm2-4v2H7V17Zm4-6H7V2H5V2H9ZM3,11v2H5V11ZM6,8H7v2h5V19H11V17H9ZM13,4H11V6h2Zm-2,7h2V8H11ZM4,9A1,1,0,0,1,3,8V4A1,1,0,0,1,4,3H8A1,1,0,0,1,9,4V8A1,1,0,0,1,8,9ZM5,7H7V5H5ZM21,4v8H19V9H16a1,1,0,0,1-1-1V4a1,1,0,0,1,1-1h4A1,1,0,0,1,21,4ZM19,5H17V7h2Zm2,11v4a1,1,0,0,1-1,1H16a1,1,0,0,1-1-1v-4a1,1,0,0,1,1-1h4A1,1,0,0,1,21,16Zm-2,1H17v2h2Z"
+      />
+    </svg>
+  )
+}
+
 // ─── Web Audio + Haptic feedback ───────────────────────────────────
 function beep(type) {
   try {
@@ -319,7 +339,7 @@ export default function App() {
         <div className="w-full max-w-sm space-y-7 text-center">
           {/* Logo Brandmark */}
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl" aria-hidden="true">
-            <QrCode className="h-8 w-8 text-emerald-400" />
+            <BrandQrIcon className="h-8 w-8 text-emerald-400" />
           </div>
 
           <div>
@@ -351,7 +371,7 @@ export default function App() {
             >
               <div className="flex items-center gap-3.5">
                 <div className="h-10 w-10 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0" aria-hidden="true">
-                  <QrCode className="h-5 w-5 text-zinc-300" />
+                  <BrandQrIcon className="h-5 w-5 text-zinc-300" />
                 </div>
                 <div>
                   <div className="text-sm font-bold text-zinc-100 group-hover:text-zinc-200 transition-colors">Soy Alumno/a</div>
@@ -816,7 +836,7 @@ function AlumnoView({ onBack }) {
             </>
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/40 p-8 text-center space-y-2 text-zinc-500">
-              <QrCode className="h-10 w-10 mx-auto opacity-30" aria-hidden="true" />
+              <BrandQrIcon className="h-10 w-10 mx-auto opacity-30 text-zinc-500" aria-hidden="true" />
               <p className="text-xs">Ingresá al menos 7 dígitos para generar tu código QR y consultar tu presentismo.</p>
             </div>
           )}
@@ -939,7 +959,7 @@ function ProfesorView({
         <div className="max-w-4xl mx-auto px-4 flex items-center justify-between h-14">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center" aria-hidden="true">
-              <QrCode className="h-4 w-4 text-emerald-400" />
+              <BrandQrIcon className="h-4 w-4 text-emerald-400" />
             </div>
             <span className="font-extrabold text-sm text-zinc-100 tracking-tight hidden sm:inline">finanzasQR</span>
           </div>
