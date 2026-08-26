@@ -514,8 +514,7 @@ function AppContent() {
           </div>
 
           <div>
-            <h1 className="text-[2rem] leading-9 font-extrabold text-zinc-100 tracking-tight">finanzasQR</h1>
-            <p className="text-xs text-zinc-400 mt-1">Control de asistencia universitario</p>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-zinc-100 tracking-tight">finanzasQR</h1>
           </div>
 
           <div className="grid gap-3 pt-1">
