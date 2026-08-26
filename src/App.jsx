@@ -323,8 +323,7 @@ export default function App() {
           </div>
 
           <div>
-            <h1 className="text-2xl font-extrabold text-zinc-100 tracking-tight">finanzasQR</h1>
-            <p className="text-xs text-zinc-400 mt-1">Control de asistencia ágil y en tiempo real</p>
+            <h1 className="text-[2rem] leading-9 font-extrabold text-zinc-100 tracking-tight">finanzasQR</h1>
           </div>
 
           <div className="grid gap-3 pt-1">
