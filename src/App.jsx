@@ -2,11 +2,13 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { QRCodeSVG } from 'qrcode.react'
 import Papa from 'papaparse'
+import * as XLSX from 'xlsx'
 import {
   QrCode, Camera, CameraOff, Upload, Download, Search, Users, UserCheck,
   FileSpreadsheet, CheckCircle2, AlertCircle, XCircle, Volume2,
   VolumeX, BarChart3, GraduationCap, ScanLine, X, Clock, Percent,
-  Cloud, CloudOff, RefreshCw, LogOut, Lock, Eye, EyeOff, WifiOff, ArrowLeft
+  Cloud, CloudOff, RefreshCw, LogOut, Lock, Eye, EyeOff, WifiOff, ArrowLeft,
+  Undo2, Trash2, Filter
 } from 'lucide-react'
 
 // ─── Config ────────────────────────────────────────────────────────
@@ -92,10 +94,11 @@ const normalizeDate = (d) => {
 }
 
 // Helper to format DNI with dots for human readability (e.g. 46.102.693)
-const formatDniDisplay = (dni) => {
-  const clean = String(dni || '').replace(/\D/g, '')
-  if (clean.length <= 4) return clean
-  if (clean.length <= 7) return `${clean.slice(0, -6)}.${clean.slice(-6, -3)}.${clean.slice(-3)}`
+const formatDniDisplay = (raw) => {
+  const clean = String(raw || '').replace(/\D/g, '')
+  if (!clean) return ''
+  if (clean.length <= 3) return clean
+  if (clean.length <= 6) return `${clean.slice(0, -3)}.${clean.slice(-3)}`
   return `${clean.slice(0, -6)}.${clean.slice(-6, -3)}.${clean.slice(-3)}`
 }
 
@@ -267,6 +270,27 @@ export default function App() {
     }
   }, [])
 
+  // ── Delete / Undo attendance ──
+  const deleteAttendance = useCallback(async (dni, date) => {
+    const cleanDni = String(dni || '').replace(/\D/g, '').trim()
+    const cleanDate = normalizeDate(date)
+
+    // Optimistic local state removal
+    setRecords(prev => prev.filter(r => !(String(r.dni).replace(/\D/g, '').trim() === cleanDni && normalizeDate(r.date) === cleanDate)))
+    showToast('ok', 'Asistencia anulada.')
+
+    if (!SHEETS_URL) return
+    try {
+      await fetch(SHEETS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'delete_attendance', dni: cleanDni, date: cleanDate })
+      })
+    } catch (err) {
+      console.warn('Error deleting attendance:', err)
+    }
+  }, [showToast])
+
   // ── Push roster to Sheets ─────────────────────────────────────
   const pushRosterToSheets = useCallback(async (newRoster) => {
     if (!SHEETS_URL) return
@@ -364,6 +388,7 @@ export default function App() {
       pendingCount={pendingCount}
       onPull={pullFromSheets}
       onPushAttendance={pushToSheets}
+      onDeleteAttendance={deleteAttendance}
       onPushRoster={pushRosterToSheets}
       onLogout={logout}
     />
@@ -470,10 +495,10 @@ function LoginScreen({ onSuccess, onBack }) {
 //  ALUMNO VIEW (PUBLIC)
 // ═══════════════════════════════════════════════════════════════════
 function AlumnoView({ onBack }) {
-  const [dni, setDni] = useState(() => load('qr_alumno_dni', ''))
+  const [rawDni, setRawDni] = useState(() => load('qr_alumno_dni', ''))
   const qrRef = useRef(null)
 
-  useEffect(() => { save('qr_alumno_dni', dni) }, [dni])
+  useEffect(() => { save('qr_alumno_dni', rawDni) }, [rawDni])
 
   const handleDownload = () => {
     const svg = qrRef.current?.querySelector('svg')
@@ -490,14 +515,19 @@ function AlumnoView({ onBack }) {
       ctx2d.fillRect(0, 0, size, size)
       ctx2d.drawImage(img, 0, 0, size, size)
       const a = document.createElement('a')
-      a.download = `QR_${dni || 'credencial'}.png`
+      a.download = `QR_${rawDni || 'credencial'}.png`
       a.href = canvas.toDataURL('image/png')
       a.click()
     }
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)))
   }
 
-  const isValidDni = dni.length >= 7
+  const handleDniChange = (e) => {
+    const clean = e.target.value.replace(/\D/g, '').slice(0, 8)
+    setRawDni(clean)
+  }
+
+  const isValidDni = rawDni.length >= 7
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col text-zinc-100">
@@ -518,7 +548,7 @@ function AlumnoView({ onBack }) {
 
       <main className="flex-1 flex items-center justify-center p-4 safe-bottom">
         <div className="w-full max-w-sm space-y-4 animate-fade-in">
-          {/* DNI Input Card */}
+          {/* DNI Input Card with Live Dot Mask */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 shadow-xl">
             <label className="block text-xs font-semibold text-zinc-300 mb-1.5 text-center">
               Ingresá tu número de DNI
@@ -526,13 +556,16 @@ function AlumnoView({ onBack }) {
             <input
               type="text"
               inputMode="numeric"
-              value={dni}
-              onChange={e => setDni(e.target.value.replace(/\D/g, ''))}
-              placeholder="Ej: 45123456"
+              value={formatDniDisplay(rawDni)}
+              onChange={handleDniChange}
+              placeholder="Ej: 45.123.456"
               maxLength={10}
               autoFocus
               className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-xl font-mono font-bold text-zinc-100 placeholder-zinc-600 text-center tracking-wider focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/80 transition-all"
             />
+            <p className="text-[10px] text-zinc-500 text-center mt-1.5">
+              Sin puntos ni espacios • Se formatea automáticamente
+            </p>
           </div>
 
           {/* Student Pass Card */}
@@ -549,14 +582,14 @@ function AlumnoView({ onBack }) {
               {/* QR Container with High Contrast */}
               <div ref={qrRef} className="flex justify-center py-1">
                 <div className="bg-white p-4 rounded-xl shadow-lg inline-block">
-                  <QRCodeSVG value={dni} size={200} level="H" includeMargin />
+                  <QRCodeSVG value={rawDni} size={200} level="H" includeMargin />
                 </div>
               </div>
 
               <div className="space-y-1">
                 <div className="text-[11px] text-zinc-400 uppercase tracking-widest font-semibold">Documento</div>
-                <div className="text-lg font-mono font-bold text-zinc-100 tracking-wider">
-                  {formatDniDisplay(dni)}
+                <div className="text-xl font-mono font-extrabold text-zinc-100 tracking-wider">
+                  {formatDniDisplay(rawDni)}
                 </div>
               </div>
 
@@ -588,7 +621,7 @@ function ProfesorView({
   soundOn, setSoundOn,
   toast, showToast, setToast,
   isSyncing, isOnline, pendingCount,
-  onPull, onPushAttendance, onPushRoster, onLogout
+  onPull, onPushAttendance, onDeleteAttendance, onPushRoster, onLogout
 }) {
   const [tab, setTab] = useState('scan')
   const [lastScan, setLastScan] = useState(null)
@@ -668,10 +701,12 @@ function ProfesorView({
       student,
       count: currentTodayCount,
       total: curRoster.length,
-      time: rec.time
+      time: rec.time,
+      dni: rec.dni,
+      date: rec.date
     })
     clearTimeout(lastScanTimer.current)
-    lastScanTimer.current = setTimeout(() => setLastScan(null), 3500)
+    lastScanTimer.current = setTimeout(() => setLastScan(null), 4500)
 
     onPushAttendance(rec)
   }, [showToast, setRecords, onPushAttendance])
@@ -854,9 +889,11 @@ function ProfesorView({
             roster={roster}
             records={records}
             registerDni={registerDni}
+            onDeleteAttendance={onDeleteAttendance}
             todayCount={todayCount}
             totalRoster={roster.length}
             lastScan={lastScan}
+            setLastScan={setLastScan}
           />
         ) : (
           <ReportTab
@@ -911,7 +948,7 @@ function EmptyRosterHint({ hasSheets, onPull }) {
 // ═══════════════════════════════════════════════════════════════════
 //  SCAN TAB
 // ═══════════════════════════════════════════════════════════════════
-function ScanTab({ roster, records, registerDni, todayCount, totalRoster, lastScan }) {
+function ScanTab({ roster, records, registerDni, onDeleteAttendance, todayCount, totalRoster, lastScan, setLastScan }) {
   const [scanning, setScanning] = useState(false)
   const [containerReady, setContainerReady] = useState(false)
   const [manualDni, setManualDni] = useState('')
@@ -1072,40 +1109,56 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster, lastSc
             </button>
           )}
 
-          {/* ⚡ Live Scanned Overlay Banner */}
+          {/* ⚡ Live Scanned Overlay Banner with Undo action */}
           {lastScan && (
             <div className="absolute inset-x-3 bottom-3 z-20 animate-slide-up">
-              <div className={`p-3.5 rounded-xl shadow-2xl backdrop-blur-xl border flex items-center gap-3 ${
+              <div className={`p-3.5 rounded-xl shadow-2xl backdrop-blur-xl border flex items-center justify-between gap-3 ${
                 lastScan.type === 'ok'  ? 'bg-zinc-950/95 border-emerald-500/60 text-emerald-100 ring-1 ring-emerald-500/30' :
                 lastScan.type === 'dup' ? 'bg-zinc-950/95 border-amber-500/60 text-amber-100 ring-1 ring-amber-500/30' :
                                           'bg-zinc-950/95 border-rose-500/60 text-rose-100 ring-1 ring-rose-500/30'
               }`}>
-                <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
-                  lastScan.type === 'ok'  ? 'bg-emerald-500/20 text-emerald-400' :
-                  lastScan.type === 'dup' ? 'bg-amber-500/20 text-amber-400' :
-                                            'bg-rose-500/20 text-rose-400'
-                }`}>
-                  {lastScan.type === 'ok'  && <CheckCircle2 className="h-5 w-5" />}
-                  {lastScan.type === 'dup' && <AlertCircle className="h-5 w-5" />}
-                  {lastScan.type === 'error' && <XCircle className="h-5 w-5" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-bold text-xs text-zinc-100 truncate">
-                      {lastScan.student ? lastScan.student.nombre : `DNI ${lastScan.dni}`}
-                    </p>
-                    {lastScan.type === 'ok' && (
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
-                        #{lastScan.count} de {lastScan.total}
-                      </span>
-                    )}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
+                    lastScan.type === 'ok'  ? 'bg-emerald-500/20 text-emerald-400' :
+                    lastScan.type === 'dup' ? 'bg-amber-500/20 text-amber-400' :
+                                              'bg-rose-500/20 text-rose-400'
+                  }`}>
+                    {lastScan.type === 'ok'  && <CheckCircle2 className="h-5 w-5" />}
+                    {lastScan.type === 'dup' && <AlertCircle className="h-5 w-5" />}
+                    {lastScan.type === 'error' && <XCircle className="h-5 w-5" />}
                   </div>
-                  <p className="text-[11px] opacity-90 truncate mt-0.5 font-mono">
-                    {lastScan.type === 'ok'  ? `✓ Presente registrado (${lastScan.time})` :
-                     lastScan.type === 'dup' ? `⚠ ${lastScan.text}` :
-                                               `✕ ${lastScan.text}`}
-                  </p>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-xs text-zinc-100 truncate">
+                        {lastScan.student ? lastScan.student.nombre : `DNI ${lastScan.dni}`}
+                      </p>
+                      {lastScan.type === 'ok' && (
+                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                          #{lastScan.count}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] opacity-90 truncate mt-0.5 font-mono">
+                      {lastScan.type === 'ok'  ? `✓ Presente (${lastScan.time})` :
+                       lastScan.type === 'dup' ? `⚠ ${lastScan.text}` :
+                                                 `✕ ${lastScan.text}`}
+                    </p>
+                  </div>
                 </div>
+
+                {lastScan.type === 'ok' && (
+                  <button
+                    onClick={() => {
+                      onDeleteAttendance(lastScan.dni, lastScan.date || todayISO())
+                      setLastScan(null)
+                    }}
+                    title="Anular este registro"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-2.5 py-1.5 rounded-lg transition-colors shrink-0"
+                  >
+                    <Undo2 className="h-3 w-3" />
+                    <span>Deshacer</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1168,9 +1221,18 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster, lastSc
                     <div className="text-[10px] text-zinc-400 font-mono">DNI: {s.dni}</div>
                   </div>
                   {present ? (
-                    <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
-                      PRESENTE
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+                        PRESENTE
+                      </span>
+                      <button
+                        onClick={() => onDeleteAttendance(s.dni, today)}
+                        title="Anular asistencia de hoy"
+                        className="p-1 rounded text-zinc-500 hover:text-rose-400 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   ) : (
                     <button
                       onClick={() => registerDni(s.dni)}
@@ -1186,7 +1248,7 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster, lastSc
         )}
       </div>
 
-      {/* Today's Attendance List */}
+      {/* Today's Attendance List with 1-click Delete/Undo */}
       {todayList.length > 0 && (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 shadow-sm">
           <h3 className="text-xs font-bold text-zinc-100 mb-2.5 flex items-center gap-1.5">
@@ -1197,13 +1259,22 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster, lastSc
             {todayList.slice().reverse().map((r, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between p-2 rounded-xl bg-zinc-950 border border-zinc-850 text-xs"
+                className="flex items-center justify-between p-2 rounded-xl bg-zinc-950 border border-zinc-850 text-xs hover:border-zinc-750 transition-colors"
               >
                 <div className="truncate pr-2">
                   <span className="font-semibold text-zinc-200">{r.nombre}</span>
                   <span className="text-[10px] text-zinc-500 ml-2 font-mono">{r.dni}</span>
                 </div>
-                <span className="text-[11px] text-zinc-400 font-mono shrink-0">{r.time}</span>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <span className="text-[11px] text-zinc-400 font-mono">{r.time}</span>
+                  <button
+                    onClick={() => onDeleteAttendance(r.dni, r.date || today)}
+                    title="Anular esta asistencia"
+                    className="p-1 rounded text-zinc-400 hover:text-rose-300 hover:bg-zinc-900 transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1218,6 +1289,7 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster, lastSc
 // ═══════════════════════════════════════════════════════════════════
 function ReportTab({ roster, records, setRecords, showToast }) {
   const [search, setSearch] = useState('')
+  const [filterRiskOnly, setFilterRiskOnly] = useState(false)
 
   const allDates = useMemo(() => Array.from(new Set(records.map(r => normalizeDate(r.date)).filter(Boolean))).sort(), [records])
 
@@ -1239,29 +1311,39 @@ function ReportTab({ roster, records, setRecords, showToast }) {
   }, [roster, records, allDates])
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return matrix
+    let list = matrix
+    if (filterRiskOnly) {
+      list = list.filter(s => s.pct < 80)
+    }
+    if (!search.trim()) return list
     const q = search.toLowerCase()
-    return matrix.filter(s => s.nombre.toLowerCase().includes(q) || s.dni.includes(q))
-  }, [matrix, search])
+    return list.filter(s => s.nombre.toLowerCase().includes(q) || s.dni.includes(q))
+  }, [matrix, search, filterRiskOnly])
 
-  const handleExport = () => {
+  const riskCount = useMemo(() => matrix.filter(s => s.pct < 80).length, [matrix])
+
+  const handleExportXLSX = () => {
     if (!allDates.length) { showToast('error', 'No hay asistencias registradas para exportar.'); return }
-    const header = ['DNI', 'Libreta', 'Nombre_Apellido', ...allDates, 'Total', 'Porcentaje']
-    const rows = matrix.map(s => [s.dni, s.libreta || '', s.nombre, ...allDates.map(d => s.perDate[d] ? '1' : '0'), String(s.total), `${s.pct}%`])
-    const csv = Papa.unparse({ fields: header, data: rows })
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `presentismo_${todayISO()}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    showToast('ok', `Exportado: ${roster.length} alumnos × ${allDates.length} fechas.`)
+    const headers = ['DNI', 'Libreta', 'Nombre y Apellido', ...allDates, 'Total Asistencias', '% Presentismo']
+    const rows = matrix.map(s => [
+      String(s.dni),
+      String(s.libreta || ''),
+      String(s.nombre || ''),
+      ...allDates.map(d => s.perDate[d] ? '✓' : '—'),
+      s.total,
+      `${s.pct}%`
+    ])
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Presentismo')
+    XLSX.writeFile(wb, `presentismo_finanzasQR_${todayISO()}.xlsx`)
+    showToast('ok', `Exportado archivo Excel (.xlsx) con ${roster.length} alumnos.`)
   }
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Header card with export & search */}
+      {/* Header card with Excel Export & search */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div>
@@ -1275,11 +1357,11 @@ function ReportTab({ roster, records, setRecords, showToast }) {
           </div>
 
           <button
-            onClick={handleExport}
+            onClick={handleExportXLSX}
             className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-600/20 transition-all active:scale-[0.98]"
           >
             <Download className="h-3.5 w-3.5" />
-            <span>Exportar CSV</span>
+            <span>Descargar Excel (.xlsx)</span>
           </button>
         </div>
 
@@ -1295,29 +1377,56 @@ function ReportTab({ roster, records, setRecords, showToast }) {
         </div>
       </div>
 
-      {/* Summary chips */}
+      {/* Summary chips with Interactive <80% Risk Filter */}
       {allDates.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center text-xs">
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3">
             <div className="text-base font-extrabold font-mono text-zinc-100">{roster.length}</div>
             <div className="text-[10px] text-zinc-400 mt-0.5">Alumnos</div>
           </div>
+
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-3">
             <div className="text-base font-extrabold font-mono text-zinc-100">{allDates.length}</div>
             <div className="text-[10px] text-zinc-400 mt-0.5">Clases</div>
           </div>
+
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
             <div className="text-base font-extrabold font-mono text-emerald-400">
               {roster.length > 0 ? Math.round(matrix.reduce((a, s) => a + s.pct, 0) / roster.length) : 0}%
             </div>
             <div className="text-[10px] text-emerald-300/80 mt-0.5">Promedio gral.</div>
           </div>
-          <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
-            <div className="text-base font-extrabold font-mono text-rose-400">
-              {matrix.filter(s => s.pct < 60).length}
+
+          {/* Interactive <80% Risk Filter Button */}
+          <button
+            onClick={() => setFilterRiskOnly(!filterRiskOnly)}
+            title="Filtrar solo alumnos en riesgo (<80% asistencia)"
+            className={`rounded-xl border p-3 text-center transition-all cursor-pointer ${
+              filterRiskOnly
+                ? 'border-rose-500 bg-rose-500/20 ring-2 ring-rose-500/40 shadow-lg shadow-rose-500/20'
+                : 'border-rose-500/20 bg-rose-500/5 hover:border-rose-500/40 hover:bg-rose-500/10'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-base font-extrabold font-mono text-rose-400">{riskCount}</span>
+              <Filter className={`h-3 w-3 ${filterRiskOnly ? 'text-rose-300' : 'text-rose-400/60'}`} />
             </div>
-            <div className="text-[10px] text-rose-300/80 mt-0.5">&lt;60% asist.</div>
-          </div>
+            <div className="text-[10px] text-rose-300/80 mt-0.5">
+              {filterRiskOnly ? 'Filtrando <80%' : '<80% (En riesgo)'}
+            </div>
+          </button>
+        </div>
+      )}
+
+      {filterRiskOnly && (
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 animate-fade-in">
+          <span>Mostrando solo alumnos con regularidad en riesgo (&lt;80% asistencia).</span>
+          <button
+            onClick={() => setFilterRiskOnly(false)}
+            className="font-bold underline hover:text-white transition-colors"
+          >
+            Ver todos
+          </button>
         </div>
       )}
 
@@ -1367,8 +1476,7 @@ function ReportTab({ roster, records, setRecords, showToast }) {
                     <td className="py-2.5 px-3 text-center font-mono">
                       <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${
                         s.pct >= 80 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                        s.pct >= 60 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                                      'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                      'bg-rose-500/10 text-rose-400 border border-rose-500/20 font-extrabold'
                       }`}>
                         <Percent className="h-2.5 w-2.5" />
                         {s.pct}

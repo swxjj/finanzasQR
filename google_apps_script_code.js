@@ -163,6 +163,42 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
+    // ── Anular / Eliminar asistencia ──────────────────────────────
+    if (action === 'delete_attendance') {
+      let sheetAsist = ss.getSheetByName('Asistencias');
+      if (!sheetAsist) {
+        return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      const cleanDni = String(contents.dni || '').replace(/\D/g, '').trim();
+      const cleanDate = normalizeDateGAS(contents.date, ss);
+
+      if (cleanDni && cleanDate) {
+        const aValues = sheetAsist.getDataRange().getValues();
+        for (let i = aValues.length - 1; i >= 0; i--) {
+          const val0 = String(aValues[i][0] || '').trim().toLowerCase();
+          if (val0 === 'fecha') continue;
+          const existingDni = String(aValues[i][2] || '').replace(/\D/g, '').trim();
+          const existingDate = normalizeDateGAS(aValues[i][0], ss);
+          if (existingDni === cleanDni && existingDate === cleanDate) {
+            sheetAsist.deleteRow(i + 1);
+            break;
+          }
+        }
+
+        try {
+          const fullData = obtenerDatosCompletos(ss);
+          armarMatriz(ss, fullData.padron, fullData.records);
+        } catch (_) {}
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'ok',
+        message: 'Asistencia eliminada con éxito'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     return ContentService.createTextOutput(JSON.stringify({ status: 'unknown_action' }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
