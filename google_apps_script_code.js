@@ -332,7 +332,14 @@ function armarMatriz(ss, padron, asistencias) {
   });
   const fechas = Object.keys(fechasSet).sort();
 
-  const headers = ['DNI', 'Libreta', 'Nombre y Apellido', ...fechas, 'Total Asistencias', '% Presentismo'];
+  const headers = [
+    'DNI',
+    'Libreta',
+    'Nombre y Apellido',
+    ...fechas.map((f, idx) => 'Clase ' + (idx + 1) + ' (' + f + ')'),
+    'Total Asistencias',
+    '% Presentismo'
+  ];
   const totalCols = headers.length;
 
   // Mapa de asistencias por alumno: { dni: { fecha: true } }
@@ -362,8 +369,8 @@ function armarMatriz(ss, padron, asistencias) {
       String(s.libreta || ''),
       String(s.nombre || ''),
       ...fechasCols,
-      total,
-      pct
+      Number(total),
+      String(pct)
     ];
   });
 
@@ -380,12 +387,29 @@ function armarMatriz(ss, padron, asistencias) {
 
   if (rows.length > 0) {
     sheetMatriz.getRange(2, 1, rows.length, totalCols).setValues(rows);
-    sheetMatriz.getRange(2, 1, rows.length, 2).setHorizontalAlignment('center');
+    
+    // DNI y Libreta centrados como texto
+    sheetMatriz.getRange(2, 1, rows.length, 1).setNumberFormat('@').setHorizontalAlignment('center');
+    sheetMatriz.getRange(2, 2, rows.length, 1).setNumberFormat('@').setHorizontalAlignment('center');
+    // Nombre a la izquierda en negrita
     sheetMatriz.getRange(2, 3, rows.length, 1).setHorizontalAlignment('left').setFontWeight('bold');
+    
+    // Columnas de fechas de clases centradas
     if (fechas.length > 0) {
       sheetMatriz.getRange(2, 4, rows.length, fechas.length).setHorizontalAlignment('center');
     }
-    sheetMatriz.getRange(2, totalCols - 1, rows.length, 2).setHorizontalAlignment('center').setFontWeight('bold');
+    
+    // Total Asistencias: Forzar formato de número entero '0' (evita que Sheets muestre 200%)
+    sheetMatriz.getRange(2, totalCols - 1, rows.length, 1)
+      .setNumberFormat('0')
+      .setHorizontalAlignment('center')
+      .setFontWeight('bold');
+
+    // % Presentismo: Formato texto '@' con porcentaje
+    sheetMatriz.getRange(2, totalCols, rows.length, 1)
+      .setNumberFormat('@')
+      .setHorizontalAlignment('center')
+      .setFontWeight('bold');
   }
 
   sheetMatriz.autoResizeColumns(1, totalCols);

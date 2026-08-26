@@ -1417,13 +1417,20 @@ function ReportTab({ roster, records, setRecords, showToast }) {
 
   const handleExportXLSX = () => {
     if (!allDates.length) { showToast('error', 'No hay asistencias registradas para exportar.'); return }
-    const headers = ['DNI', 'Libreta', 'Nombre y Apellido', ...allDates, 'Total Asistencias', '% Presentismo']
+    const headers = [
+      'DNI',
+      'Libreta',
+      'Nombre y Apellido',
+      ...allDates.map((d, idx) => `Clase ${idx + 1} (${d})`),
+      'Total Asistencias',
+      '% Presentismo'
+    ]
     const rows = matrix.map(s => [
       String(s.dni),
       String(s.libreta || ''),
       String(s.nombre || ''),
       ...allDates.map(d => s.perDate[d] ? '✓' : '—'),
-      s.total,
+      Number(s.total),
       `${s.pct}%`
     ])
 
@@ -1543,9 +1550,10 @@ function ReportTab({ roster, records, setRecords, showToast }) {
                 <tr>
                   <th scope="col" className="py-3 px-3.5 sticky left-0 bg-zinc-950 z-10">Alumno</th>
                   <th scope="col" className="py-3 px-3 font-mono">DNI</th>
-                  {allDates.map(d => (
-                    <th scope="col" key={d} className="py-3 px-2 text-center whitespace-nowrap font-mono">
-                      {d.slice(5)}
+                  {allDates.map((d, idx) => (
+                    <th scope="col" key={d} className="py-2.5 px-2.5 text-center whitespace-nowrap font-mono">
+                      <div className="text-[10px] text-emerald-400 font-extrabold tracking-tight">C{idx + 1}</div>
+                      <div className="text-[11px] text-zinc-300">{d.slice(5)}</div>
                     </th>
                   ))}
                   <th scope="col" className="py-3 px-3 text-center font-mono">Total</th>
