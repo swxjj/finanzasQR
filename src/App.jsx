@@ -14,9 +14,14 @@ const SHEETS_URL = import.meta.env.VITE_SHEETS_API_URL || ''
 const PROF_USER = import.meta.env.VITE_PROF_USER || 'admin'
 const PROF_PASS = import.meta.env.VITE_PROF_PASS || 'docente2026'
 
-// ─── Web Audio feedback ────────────────────────────────────────────
+// ─── Web Audio + Haptic feedback ───────────────────────────────────
 function beep(type) {
   try {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      if (type === 'ok') navigator.vibrate(80)
+      else if (type === 'dup') navigator.vibrate([80, 50, 80])
+      else navigator.vibrate([150, 50, 150])
+    }
     const AC = window.AudioContext || window.webkitAudioContext
     if (!AC) return
     const ctx = new AC()
@@ -29,21 +34,21 @@ function beep(type) {
       osc.type = 'sine'
       osc.frequency.setValueAtTime(660, t)
       osc.frequency.setValueAtTime(880, t + 0.08)
-      gain.gain.setValueAtTime(0.18, t)
+      gain.gain.setValueAtTime(0.2, t)
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25)
       osc.start(t); osc.stop(t + 0.25)
     } else if (type === 'dup') {
       osc.type = 'triangle'
       osc.frequency.setValueAtTime(440, t)
       osc.frequency.setValueAtTime(340, t + 0.12)
-      gain.gain.setValueAtTime(0.2, t)
+      gain.gain.setValueAtTime(0.22, t)
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3)
       osc.start(t); osc.stop(t + 0.3)
     } else {
       osc.type = 'sawtooth'
       osc.frequency.setValueAtTime(220, t)
       osc.frequency.setValueAtTime(150, t + 0.15)
-      gain.gain.setValueAtTime(0.18, t)
+      gain.gain.setValueAtTime(0.2, t)
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35)
       osc.start(t); osc.stop(t + 0.35)
     }
@@ -500,6 +505,8 @@ function ProfesorView({
   onPull, onPushAttendance, onPushRoster, onLogout
 }) {
   const [tab, setTab] = useState('scan')
+  const [lastScan, setLastScan] = useState(null)
+  const lastScanTimer = useRef(null)
 
   // Stable refs for registerDni
   const recordsRef = useRef(records)
@@ -533,7 +540,7 @@ function ProfesorView({
     e.target.value = ''
   }
 
-  // Register attendance (stable — never recreated)
+  // Register attendance (instant optimistic UI update)
   const registerDni = useCallback((rawDni) => {
     const dni = rawDni.replace(/\D/g, '').trim()
     if (!dni) return
@@ -545,6 +552,9 @@ function ProfesorView({
     if (!student) {
       if (snd) beep('err')
       showToast('error', `DNI ${dni} no está en el padrón.`)
+      setLastScan({ type: 'error', text: `DNI ${dni} no está en el padrón`, dni })
+      clearTimeout(lastScanTimer.current)
+      lastScanTimer.current = setTimeout(() => setLastScan(null), 3500)
       return
     }
 
@@ -553,13 +563,30 @@ function ProfesorView({
     if (dup) {
       if (snd) beep('dup')
       showToast('dup', `${student.nombre} ya tiene asistencia hoy (${dup.time}).`)
+      setLastScan({ type: 'dup', student, text: `Ya registrado hoy a las ${dup.time}`, time: dup.time })
+      clearTimeout(lastScanTimer.current)
+      lastScanTimer.current = setTimeout(() => setLastScan(null), 3500)
       return
     }
 
     const rec = { dni, libreta: student.libreta || '', nombre: student.nombre, date: today, time: nowTime() }
+    
+    // ⚡ Actualización inmediata local en React (el contador sube al instante)
     setRecords(prev => [...prev, rec])
     if (snd) beep('ok')
     showToast('ok', `✓ ${student.nombre} — Presente`)
+
+    const currentTodayCount = curRecords.filter(r => normalizeDate(r.date) === today).length + 1
+    setLastScan({
+      type: 'ok',
+      student,
+      count: currentTodayCount,
+      total: curRoster.length,
+      time: rec.time
+    })
+    clearTimeout(lastScanTimer.current)
+    lastScanTimer.current = setTimeout(() => setLastScan(null), 3500)
+
     onPushAttendance(rec)
   }, [showToast, setRecords, onPushAttendance])
 
@@ -702,7 +729,7 @@ function ProfesorView({
         {roster.length === 0 ? (
           <EmptyRosterHint hasSheets={Boolean(SHEETS_URL)} onPull={() => onPull(false)} />
         ) : tab === 'scan' ? (
-          <ScanTab roster={roster} records={records} registerDni={registerDni} todayCount={todayCount} totalRoster={roster.length} />
+          <ScanTab roster={roster} records={records} registerDni={registerDni} todayCount={todayCount} totalRoster={roster.length} lastScan={lastScan} />
         ) : (
           <ReportTab roster={roster} records={records} setRecords={setRecords} showToast={showToast} />
         )}
@@ -744,7 +771,7 @@ function EmptyRosterHint({ hasSheets, onPull }) {
 // ═══════════════════════════════════════════════════════════════════
 //  SCAN TAB
 // ═══════════════════════════════════════════════════════════════════
-function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
+function ScanTab({ roster, records, registerDni, todayCount, totalRoster, lastScan }) {
   const [scanning, setScanning] = useState(false)
   const [containerReady, setContainerReady] = useState(false)
   const [manualDni, setManualDni] = useState('')
@@ -830,8 +857,10 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
           <div className="text-2xl font-extrabold text-indigo-400">{totalRoster}</div>
           <div className="text-[11px] text-slate-500 mt-1">En padrón</div>
         </div>
-        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-center shadow-xl">
-          <div className="text-2xl font-extrabold text-emerald-400">{todayCount}</div>
+        <div className={`rounded-2xl border transition-all duration-300 ${
+          lastScan?.type === 'ok' ? 'border-emerald-400 bg-emerald-500/20 ring-2 ring-emerald-500/40 shadow-lg shadow-emerald-500/20 scale-[1.03]' : 'border-emerald-500/20 bg-emerald-500/5'
+        } p-4 text-center shadow-xl`}>
+          <div key={todayCount} className="text-2xl font-extrabold text-emerald-400 animate-fade-in">{todayCount}</div>
           <div className="text-[11px] text-slate-400 mt-1">Presentes hoy</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 text-center shadow-xl">
@@ -872,6 +901,44 @@ function ScanTab({ roster, records, registerDni, todayCount, totalRoster }) {
               className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-lg bg-red-500/80 hover:bg-red-600 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-md shadow-md">
               <CameraOff className="h-3.5 w-3.5" /> Detener
             </button>
+          )}
+
+          {/* ⚡ Banner flotante de feedback en vivo sobre la cámara */}
+          {lastScan && (
+            <div className="absolute inset-x-3 bottom-3 z-20 animate-slide-up">
+              <div className={`p-3.5 rounded-xl shadow-2xl backdrop-blur-xl border flex items-center gap-3 ${
+                lastScan.type === 'ok'  ? 'bg-emerald-950/90 border-emerald-500/60 text-emerald-100 ring-2 ring-emerald-500/30' :
+                lastScan.type === 'dup' ? 'bg-amber-950/90 border-amber-500/60 text-amber-100 ring-2 ring-amber-500/30' :
+                                          'bg-rose-950/90 border-rose-500/60 text-rose-100 ring-2 ring-rose-500/30'
+              }`}>
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  lastScan.type === 'ok'  ? 'bg-emerald-500/20 text-emerald-400' :
+                  lastScan.type === 'dup' ? 'bg-amber-500/20 text-amber-400' :
+                                            'bg-rose-500/20 text-rose-400'
+                }`}>
+                  {lastScan.type === 'ok'  && <CheckCircle2 className="h-6 w-6 animate-pulse" />}
+                  {lastScan.type === 'dup' && <AlertCircle className="h-6 w-6" />}
+                  {lastScan.type === 'error' && <XCircle className="h-6 w-6" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-extrabold text-sm text-white truncate">
+                      {lastScan.student ? lastScan.student.nombre : `DNI ${lastScan.dni}`}
+                    </p>
+                    {lastScan.type === 'ok' && (
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                        #{lastScan.count} de {lastScan.total}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] opacity-90 truncate mt-0.5">
+                    {lastScan.type === 'ok'  ? `✓ Asistencia confirmada (${lastScan.time})` :
+                     lastScan.type === 'dup' ? `⚠ ${lastScan.text}` :
+                                               `✕ ${lastScan.text}`}
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
