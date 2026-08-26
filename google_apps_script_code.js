@@ -155,7 +155,7 @@ function doPost(e) {
       try {
         const fullData = obtenerDatosCompletos(ss);
         armarMatriz(ss, fullData.padron, fullData.records);
-      } catch (_) {}
+      } catch (_) { }
 
       return ContentService.createTextOutput(JSON.stringify({
         status: 'ok',
@@ -190,7 +190,7 @@ function doPost(e) {
         try {
           const fullData = obtenerDatosCompletos(ss);
           armarMatriz(ss, fullData.padron, fullData.records);
-        } catch (_) {}
+        } catch (_) { }
       }
 
       return ContentService.createTextOutput(JSON.stringify({
@@ -256,7 +256,7 @@ function normalizeDateGAS(rawFecha, ss) {
     if (!isNaN(parsed.getTime())) {
       return Utilities.formatDate(parsed, tz, 'yyyy-MM-dd');
     }
-  } catch (_) {}
+  } catch (_) { }
   return str;
 }
 
@@ -387,18 +387,18 @@ function armarMatriz(ss, padron, asistencias) {
 
   if (rows.length > 0) {
     sheetMatriz.getRange(2, 1, rows.length, totalCols).setValues(rows);
-    
+
     // DNI y Libreta centrados como texto
     sheetMatriz.getRange(2, 1, rows.length, 1).setNumberFormat('@').setHorizontalAlignment('center');
     sheetMatriz.getRange(2, 2, rows.length, 1).setNumberFormat('@').setHorizontalAlignment('center');
     // Nombre a la izquierda en negrita
     sheetMatriz.getRange(2, 3, rows.length, 1).setHorizontalAlignment('left').setFontWeight('bold');
-    
+
     // Columnas de fechas de clases centradas
     if (fechas.length > 0) {
       sheetMatriz.getRange(2, 4, rows.length, fechas.length).setHorizontalAlignment('center');
     }
-    
+
     // Total Asistencias: Forzar formato de número entero '0' (evita que Sheets muestre 200%)
     sheetMatriz.getRange(2, totalCols - 1, rows.length, 1)
       .setNumberFormat('0')

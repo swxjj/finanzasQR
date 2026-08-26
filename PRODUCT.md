@@ -13,11 +13,11 @@ web
 
 ## Product Purpose
 
-QR Asist es una aplicación web ágil y mobile-friendly diseñada para optimizar y modernizar la toma de asistencia en el ámbito universitario. Elimina las planillas de papel y el tipeo manual posterior, consolidando las asistencias tomadas por cualquier docente de la cátedra directamente en una planilla centralizada de Google Sheets en tiempo real.
+finanzasQR es una aplicación web ágil y mobile-friendly diseñada para optimizar y modernizar la toma de asistencia en el ámbito universitario. Elimina las planillas de papel y el tipeo manual posterior, consolidando las asistencias tomadas por cualquier docente de la cátedra directamente en una planilla centralizada de Google Sheets en tiempo real.
 
 ## Positioning
 
-A diferencia de los sistemas de gestión académica pesados (ej: SIU Guaraní) o planillas manuales desconectadas, QR Asist ofrece escaneo instantáneo con cámara continua, feedback sonoro (Web Audio API), funcionamiento offline de contingencia y sincronización bidireccional automática con Google Sheets sin requerir servidores propios ni bases de datos complejas.
+A diferencia de los sistemas de gestión académica pesados (ej: SIU Guaraní) o planillas manuales desconectadas, finanzasQR ofrece escaneo instantáneo con cámara continua, feedback sonoro (Web Audio API), funcionamiento offline de contingencia y sincronización bidireccional automática con Google Sheets sin requerir servidores propios ni bases de datos complejas.
 
 ## Operating Context
 
@@ -38,7 +38,7 @@ A diferencia de los sistemas de gestión académica pesados (ej: SIU Guaraní) o
 
 ## Brand Commitments
 
-- **Nombre:** QR Asist.
+- **Nombre:** finanzasQR.
 - **Tono y Voz:** Claro, profesional, ágil, sin fricción y enfocado en la usabilidad en el aula.
 - **Identidad Visual:** Tema oscuro sobrio y moderno (Slate 950/900 con acentos en Índigo y Esmeralda para estados positivos).
 
