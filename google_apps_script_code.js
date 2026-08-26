@@ -11,11 +11,23 @@
 // ===================================================================
 
 function doGet(e) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (_) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      message: 'Servidor ocupado, intentá de nuevo en unos segundos.',
+      padron: [],
+      records: []
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const data = obtenerDatosCompletos(ss);
 
-    // Intentar armar la matriz protegida contra errores
+    // Armar la matriz solo en doGet (lectura), nunca en el escaneo rápido
     try {
       armarMatriz(ss, data.padron, data.records);
     } catch (mErr) {
@@ -37,10 +49,22 @@ function doGet(e) {
       padron: [],
       records: []
     })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
   }
 }
 
 function doPost(e) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (_) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      error: 'Servidor ocupado, intentá de nuevo en unos segundos.'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let contents = {};
@@ -52,6 +76,7 @@ function doPost(e) {
 
     const action = contents.action || 'register';
 
+    // ── Registro de asistencia individual ──────────────────────────
     if (action === 'register') {
       let sheetAsist = ss.getSheetByName('Asistencias');
       if (!sheetAsist) {
@@ -65,53 +90,100 @@ function doPost(e) {
       const cleanLib = String(contents.libreta || '').trim();
       const cleanNom = String(contents.nombre || '').trim();
 
+      if (!cleanDni || !cleanDate) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error',
+          error: 'DNI y fecha son obligatorios.'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      // ── Validación de duplicados en backend (DNI + Fecha) ──────
+      const aValues = sheetAsist.getDataRange().getValues();
+      for (let i = 1; i < aValues.length; i++) {
+        const existingDni = String(aValues[i][2] || '').replace(/\D/g, '').trim();
+        const existingDate = normalizeDateGAS(aValues[i][0], ss);
+        if (existingDni === cleanDni && existingDate === cleanDate) {
+          return ContentService.createTextOutput(JSON.stringify({
+            status: 'duplicate',
+            message: cleanNom + ' ya tiene asistencia registrada el ' + cleanDate + '.'
+          })).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+
       sheetAsist.appendRow([cleanDate, cleanTime, cleanDni, cleanLib, cleanNom]);
 
-      // Actualizar matriz
-      try {
-        const fullData = obtenerDatosCompletos(ss);
-        armarMatriz(ss, fullData.padron, fullData.records);
-      } catch (_) {}
+      // NO se regenera la matriz aquí — se actualiza solo en doGet o menú manual
 
-      return ContentService.createTextOutput(JSON.stringify({ status: 'ok', message: 'Registrado con éxito' }))
-        .setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'ok',
+        message: 'Registrado con éxito'
+      })).setMimeType(ContentService.MimeType.JSON);
     }
 
+    // ── Sincronización de padrón ───────────────────────────────────
     if (action === 'sync_padron') {
+      // Protección: no borrar el padrón existente si el payload viene vacío
+      if (!contents.padron || !Array.isArray(contents.padron) || contents.padron.length === 0) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error',
+          error: 'El padrón enviado está vacío. No se realizaron cambios para proteger los datos existentes.'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
       let sheetPadron = ss.getSheetByName('Padron');
       if (sheetPadron) sheetPadron.clearContents();
       else sheetPadron = ss.insertSheet('Padron');
 
       sheetPadron.appendRow(['DNI', 'Libreta', 'Nombre_Apellido']);
-      if (contents.padron && contents.padron.length > 0) {
-        const rows = contents.padron.map(p => [
-          String(p.dni).replace(/\D/g, '').trim(),
-          String(p.libreta || '').trim(),
-          String(p.nombre || '').trim()
-        ]);
-        sheetPadron.getRange(2, 1, rows.length, 3).setValues(rows);
-      }
+      const rows = contents.padron.map(p => [
+        String(p.dni).replace(/\D/g, '').trim(),
+        String(p.libreta || '').trim(),
+        String(p.nombre || '').trim()
+      ]);
+      sheetPadron.getRange(2, 1, rows.length, 3).setValues(rows);
 
+      // Actualizar matriz tras cambio de padrón (operación menos frecuente, aceptable)
       try {
         const fullData = obtenerDatosCompletos(ss);
         armarMatriz(ss, fullData.padron, fullData.records);
       } catch (_) {}
 
-      return ContentService.createTextOutput(JSON.stringify({ status: 'ok', count: (contents.padron || []).length }))
-        .setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'ok',
+        count: contents.padron.length
+      })).setMimeType(ContentService.MimeType.JSON);
     }
 
     return ContentService.createTextOutput(JSON.stringify({ status: 'unknown_action' }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: 'error', error: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      error: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
   }
+}
+
+// ── Normalización de fecha dentro de Google Apps Script ────────────
+// Usa la zona horaria de la hoja de cálculo (no del script)
+function normalizeDateGAS(rawFecha, ss) {
+  if (!rawFecha) return '';
+  const tz = ss.getSpreadsheetTimeZone();
+  if (rawFecha instanceof Date) {
+    return Utilities.formatDate(rawFecha, tz, 'yyyy-MM-dd');
+  }
+  const str = String(rawFecha).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  if (str.includes('T')) return str.split('T')[0];
+  return str;
 }
 
 // ── Lectura confiable de Padron y Asistencias ─────────────────────
 function obtenerDatosCompletos(ss) {
-  const tz = Session.getScriptTimeZone();
+  // Usar la zona horaria de la hoja de cálculo, no la del script
+  const tz = ss.getSpreadsheetTimeZone();
 
   // 1. Padron
   let sheetPadron = ss.getSheetByName('Padron');

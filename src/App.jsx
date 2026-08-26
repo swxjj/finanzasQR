@@ -93,6 +93,9 @@ function enqueue(record) {
   q.push(record)
   save(QUEUE_KEY, q)
 }
+function getQueueLength() {
+  return load(QUEUE_KEY, []).length
+}
 async function flushQueue() {
   if (!SHEETS_URL) return
   const q = load(QUEUE_KEY, [])
@@ -100,11 +103,21 @@ async function flushQueue() {
   const remaining = []
   for (const rec of q) {
     try {
-      await fetch(SHEETS_URL, {
+      const res = await fetch(SHEETS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'register', ...rec })
       })
+      if (!res.ok) {
+        // HTTP error (5xx, 4xx) — keep in queue for retry
+        remaining.push(rec)
+        continue
+      }
+      const data = await res.json()
+      // Only remove from queue if server accepted or already has it (duplicate)
+      if (data.status !== 'ok' && data.status !== 'duplicate') {
+        remaining.push(rec)
+      }
     } catch { remaining.push(rec) }
   }
   save(QUEUE_KEY, remaining)
@@ -126,6 +139,7 @@ export default function App() {
   const [toast, setToast] = useState(null)
   const [isSyncing, setIsSyncing] = useState(false)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [pendingCount, setPendingCount] = useState(() => getQueueLength())
   const toastTimer = useRef(null)
 
   // Persist
@@ -150,7 +164,7 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), ms)
   }, [])
 
-  // ── Pull from Sheets ──────────────────────────────────────────
+  // ── Pull from Sheets (with intelligent merge) ─────────────────
   const pullFromSheets = useCallback(async (silent = false) => {
     if (!SHEETS_URL) {
       if (!silent) showToast('error', 'Falta configurar VITE_SHEETS_API_URL en Vercel.')
@@ -159,17 +173,28 @@ export default function App() {
     setIsSyncing(true)
     try {
       await flushQueue()
+      setPendingCount(getQueueLength())
       const sep = SHEETS_URL.includes('?') ? '&' : '?'
       const res = await fetch(`${SHEETS_URL}${sep}_t=${Date.now()}`, { cache: 'no-store' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       if (data?.status === 'ok') {
         if (data.padron?.length > 0) setRoster(data.padron)
         if (Array.isArray(data.records)) {
-          const clean = data.records.map(r => ({
+          const remoteClean = data.records.map(r => ({
             ...r,
             date: normalizeDate(r.date)
           }))
-          setRecords(clean)
+
+          // Merge: keep any local records not yet in remote (pending in queue)
+          setRecords(prev => {
+            const remoteKeys = new Set(remoteClean.map(r => `${String(r.dni).replace(/\D/g, '').trim()}_${r.date}`))
+            const localOnly = prev.filter(r => {
+              const key = `${String(r.dni).replace(/\D/g, '').trim()}_${normalizeDate(r.date)}`
+              return !remoteKeys.has(key)
+            })
+            return [...remoteClean, ...localOnly]
+          })
         }
         if (!silent) showToast('ok', `☁️ Sincronizado: ${data.padron?.length || 0} alumnos, ${data.records?.length || 0} asistencias.`)
       }
@@ -184,17 +209,58 @@ export default function App() {
     if (role === 'profesor' && authed && SHEETS_URL) pullFromSheets(true)
   }, [role, authed, pullFromSheets])
 
-  // ── Push single attendance to Sheets ──────────────────────────
+  // ── Polling every 25s + visibilitychange / focus for multi-device sync ──
+  useEffect(() => {
+    if (role !== 'profesor' || !authed || !SHEETS_URL) return
+
+    // Periodic polling
+    const interval = setInterval(() => {
+      pullFromSheets(true)
+    }, 25000)
+
+    // Re-sync when tab regains focus
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') pullFromSheets(true)
+    }
+    const handleFocus = () => pullFromSheets(true)
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [role, authed, pullFromSheets])
+
+  // ── Push single attendance to Sheets (with response validation) ──
   const pushToSheets = useCallback(async (rec) => {
     if (!SHEETS_URL) return
     try {
-      await fetch(SHEETS_URL, {
+      const res = await fetch(SHEETS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ action: 'register', ...rec })
       })
+      if (!res.ok) {
+        // Server error — queue for retry
+        enqueue(rec)
+        setPendingCount(getQueueLength())
+        return
+      }
+      const data = await res.json()
+      if (data.status === 'duplicate') {
+        // Already registered on another device — no action needed
+        console.log('Backend duplicate:', data.message)
+      } else if (data.status !== 'ok') {
+        // Unexpected error — queue for retry
+        enqueue(rec)
+        setPendingCount(getQueueLength())
+      }
     } catch {
       enqueue(rec)
+      setPendingCount(getQueueLength())
     }
   }, [])
 
@@ -264,6 +330,7 @@ export default function App() {
       soundOn={soundOn} setSoundOn={setSoundOn}
       toast={toast} showToast={showToast} setToast={setToast}
       isSyncing={isSyncing} isOnline={isOnline}
+      pendingCount={pendingCount}
       onPull={pullFromSheets}
       onPushAttendance={pushToSheets}
       onPushRoster={pushRosterToSheets}
@@ -431,7 +498,7 @@ function ProfesorView({
   roster, setRoster, records, setRecords,
   soundOn, setSoundOn,
   toast, showToast, setToast,
-  isSyncing, isOnline,
+  isSyncing, isOnline, pendingCount,
   onPull, onPushAttendance, onPushRoster, onLogout
 }) {
   const [tab, setTab] = useState('scan')
@@ -538,9 +605,17 @@ function ProfesorView({
             {/* Sync button */}
             {SHEETS_URL && (
               <button onClick={() => onPull(false)} disabled={isSyncing} title="Sincronizar con Google Sheets"
-                className="p-2 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors">
+                className="p-2 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors relative">
                 <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
               </button>
+            )}
+
+            {/* Pending offline queue indicator */}
+            {pendingCount > 0 && (
+              <div className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 animate-pulse" title={`${pendingCount} asistencia(s) pendiente(s) de sincronizar`}>
+                <CloudOff className="h-3 w-3" />
+                <span>{pendingCount}</span>
+              </div>
             )}
 
             {/* Sound toggle */}
