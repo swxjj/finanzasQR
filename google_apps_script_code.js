@@ -25,13 +25,14 @@ function doGet(e) {
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    corregirEncabezadosSiFaltan(ss);
     const data = obtenerDatosCompletos(ss);
 
-    // Armar la matriz solo en doGet (lectura), nunca en el escaneo rápido
+    // Armar / actualizar matriz en Google Sheets
     try {
       armarMatriz(ss, data.padron, data.records);
     } catch (mErr) {
-      Logger.log('Error armando matriz: ' + mErr.toString());
+      Logger.log('Error armando matriz en doGet: ' + mErr.toString());
     }
 
     const response = {
@@ -67,6 +68,8 @@ function doPost(e) {
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    corregirEncabezadosSiFaltan(ss);
+
     let contents = {};
     try {
       contents = JSON.parse(e.postData.contents);
@@ -97,22 +100,30 @@ function doPost(e) {
         })).setMimeType(ContentService.MimeType.JSON);
       }
 
-      // ── Validación de duplicados en backend (DNI + Fecha) ──────
+      // ── Validación de duplicados (revisa TODAS las filas que contengan datos) ──
       const aValues = sheetAsist.getDataRange().getValues();
-      for (let i = 1; i < aValues.length; i++) {
+      for (let i = 0; i < aValues.length; i++) {
+        const val0 = String(aValues[i][0] || '').trim().toLowerCase();
+        if (val0 === 'fecha') continue; // Saltear fila de encabezado
         const existingDni = String(aValues[i][2] || '').replace(/\D/g, '').trim();
         const existingDate = normalizeDateGAS(aValues[i][0], ss);
         if (existingDni === cleanDni && existingDate === cleanDate) {
           return ContentService.createTextOutput(JSON.stringify({
             status: 'duplicate',
-            message: cleanNom + ' ya tiene asistencia registrada el ' + cleanDate + '.'
+            message: cleanNom + ' ya tiene asistencia registrada hoy (' + cleanDate + ').'
           })).setMimeType(ContentService.MimeType.JSON);
         }
       }
 
       sheetAsist.appendRow([cleanDate, cleanTime, cleanDni, cleanLib, cleanNom]);
 
-      // NO se regenera la matriz aquí — se actualiza solo en doGet o menú manual
+      // Actualizar la Matriz de Presentismo en vivo en Google Sheets
+      try {
+        const fullData = obtenerDatosCompletos(ss);
+        armarMatriz(ss, fullData.padron, fullData.records);
+      } catch (mErr) {
+        Logger.log('Error armando matriz en doPost: ' + mErr.toString());
+      }
 
       return ContentService.createTextOutput(JSON.stringify({
         status: 'ok',
@@ -122,7 +133,6 @@ function doPost(e) {
 
     // ── Sincronización de padrón ───────────────────────────────────
     if (action === 'sync_padron') {
-      // Protección: no borrar el padrón existente si el payload viene vacío
       if (!contents.padron || !Array.isArray(contents.padron) || contents.padron.length === 0) {
         return ContentService.createTextOutput(JSON.stringify({
           status: 'error',
@@ -142,7 +152,6 @@ function doPost(e) {
       ]);
       sheetPadron.getRange(2, 1, rows.length, 3).setValues(rows);
 
-      // Actualizar matriz tras cambio de padrón (operación menos frecuente, aceptable)
       try {
         const fullData = obtenerDatosCompletos(ss);
         armarMatriz(ss, fullData.padron, fullData.records);
@@ -166,25 +175,57 @@ function doPost(e) {
   }
 }
 
-// ── Normalización de fecha dentro de Google Apps Script ────────────
-// Usa la zona horaria de la hoja de cálculo (no del script)
+// ── Auto-corrección si la hoja Asistencias no tiene encabezados ────
+function corregirEncabezadosSiFaltan(ss) {
+  let sheetAsist = ss.getSheetByName('Asistencias');
+  if (!sheetAsist) {
+    sheetAsist = ss.insertSheet('Asistencias');
+    sheetAsist.appendRow(['Fecha', 'Hora', 'DNI', 'Libreta', 'Nombre_Apellido']);
+    return;
+  }
+  const aValues = sheetAsist.getDataRange().getValues();
+  if (aValues.length === 0 || (aValues.length === 1 && aValues[0].every(c => c === ''))) {
+    sheetAsist.appendRow(['Fecha', 'Hora', 'DNI', 'Libreta', 'Nombre_Apellido']);
+    return;
+  }
+  // Si la primera fila tiene datos reales y no la palabra "Fecha", insertar fila de encabezados
+  const primeraCelda = String(aValues[0][0] || '').trim().toLowerCase();
+  if (primeraCelda !== 'fecha') {
+    sheetAsist.insertRowBefore(1);
+    sheetAsist.getRange(1, 1, 1, 5).setValues([['Fecha', 'Hora', 'DNI', 'Libreta', 'Nombre_Apellido']]);
+  }
+}
+
+// ── Normalización de fecha robusta ─────────────────────────────────
 function normalizeDateGAS(rawFecha, ss) {
   if (!rawFecha) return '';
-  const tz = ss.getSpreadsheetTimeZone();
+  const tz = ss ? ss.getSpreadsheetTimeZone() : 'America/Argentina/Buenos_Aires';
   if (rawFecha instanceof Date) {
-    return Utilities.formatDate(rawFecha, tz, 'yyyy-MM-dd');
+    if (!isNaN(rawFecha.getTime())) {
+      return Utilities.formatDate(rawFecha, tz, 'yyyy-MM-dd');
+    }
   }
   const str = String(rawFecha).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
   if (str.includes('T')) return str.split('T')[0];
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)) {
+    const parts = str.split('/');
+    const d = parts[0].padStart(2, '0');
+    const m = parts[1].padStart(2, '0');
+    const y = parts[2].split(' ')[0];
+    return `${y}-${m}-${d}`;
+  }
+  try {
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      return Utilities.formatDate(parsed, tz, 'yyyy-MM-dd');
+    }
+  } catch (_) {}
   return str;
 }
 
 // ── Lectura confiable de Padron y Asistencias ─────────────────────
 function obtenerDatosCompletos(ss) {
-  // Usar la zona horaria de la hoja de cálculo, no la del script
-  const tz = ss.getSpreadsheetTimeZone();
-
   // 1. Padron
   let sheetPadron = ss.getSheetByName('Padron');
   if (!sheetPadron) {
@@ -193,7 +234,10 @@ function obtenerDatosCompletos(ss) {
   }
   const pValues = sheetPadron.getDataRange().getValues();
   const padron = [];
-  for (let i = 1; i < pValues.length; i++) {
+  for (let i = 0; i < pValues.length; i++) {
+    const val0 = String(pValues[i][0] || '').trim().toLowerCase();
+    if (val0 === 'dni' || val0 === 'documento') continue; // Saltear encabezado
+
     const rawDni = String(pValues[i][0] || '').replace(/\D/g, '').trim();
     if (rawDni) {
       padron.push({
@@ -212,25 +256,24 @@ function obtenerDatosCompletos(ss) {
   }
   const aValues = sheetAsist.getDataRange().getValues();
   const records = [];
-  for (let i = 1; i < aValues.length; i++) {
+  for (let i = 0; i < aValues.length; i++) {
+    const val0 = String(aValues[i][0] || '').trim().toLowerCase();
+    const val2 = String(aValues[i][2] || '').trim().toLowerCase();
+    if (val0 === 'fecha' || val2 === 'dni') continue; // Saltear encabezado
+
     const rawFecha = aValues[i][0];
     const rawDni = String(aValues[i][2] || '').replace(/\D/g, '').trim();
     if (rawFecha && rawDni) {
-      let formattedDate = '';
-      if (rawFecha instanceof Date) {
-        formattedDate = Utilities.formatDate(rawFecha, tz, 'yyyy-MM-dd');
-      } else {
-        const str = String(rawFecha).trim();
-        formattedDate = str.includes('T') ? str.split('T')[0] : str;
+      const formattedDate = normalizeDateGAS(rawFecha, ss);
+      if (formattedDate) {
+        records.push({
+          date: formattedDate,
+          time: String(aValues[i][1] || '').trim(),
+          dni: rawDni,
+          libreta: String(aValues[i][3] || '').trim(),
+          nombre: String(aValues[i][4] || '').trim()
+        });
       }
-
-      records.push({
-        date: formattedDate,
-        time: String(aValues[i][1] || '').trim(),
-        dni: rawDni,
-        libreta: String(aValues[i][3] || '').trim(),
-        nombre: String(aValues[i][4] || '').trim()
-      });
     }
   }
 
@@ -246,9 +289,9 @@ function armarMatriz(ss, padron, asistencias) {
 
   if (!padron || padron.length === 0) return;
 
-  // Fechas únicas
+  // Fechas únicas ordenadas
   const fechasSet = {};
-  asistencias.forEach(a => {
+  (asistencias || []).forEach(a => {
     if (a.date) fechasSet[a.date] = true;
   });
   const fechas = Object.keys(fechasSet).sort();
@@ -258,13 +301,13 @@ function armarMatriz(ss, padron, asistencias) {
 
   // Mapa de asistencias por alumno: { dni: { fecha: true } }
   const asistMap = {};
-  asistencias.forEach(a => {
+  (asistencias || []).forEach(a => {
     const d = String(a.dni).replace(/\D/g, '').trim();
     if (!asistMap[d]) asistMap[d] = {};
     asistMap[d][a.date] = true;
   });
 
-  // Filas con valores calculados directamente (100% infalible en cualquier idioma de Sheets)
+  // Filas calculadas
   const rows = padron.map(s => {
     const d = String(s.dni).replace(/\D/g, '').trim();
     let total = 0;
@@ -322,7 +365,8 @@ function onOpen() {
 
 function menuActualizarMatriz() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  corregirEncabezadosSiFaltan(ss);
   const data = obtenerDatosCompletos(ss);
   armarMatriz(ss, data.padron, data.records);
-  SpreadsheetApp.getUi().alert('✓ Matriz de presentismo actualizada.');
+  SpreadsheetApp.getUi().alert('✓ Matriz de presentismo actualizada (' + data.records.length + ' asistencias procesadas).');
 }
