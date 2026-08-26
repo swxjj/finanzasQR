@@ -318,12 +318,16 @@ export default function App() {
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 selection:bg-emerald-500/20">
         <div className="w-full max-w-sm space-y-7 text-center animate-fade-in">
           {/* Logo Brandmark */}
+
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl">
             <QrCode className="h-8 w-8 text-emerald-400" />
           </div>
 
+
           <div>
+
             <h1 className="text-[2rem] leading-9 font-extrabold text-zinc-100 tracking-tight">finanzasQR</h1>
+
           </div>
 
           <div className="grid gap-3 pt-1">
