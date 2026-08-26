@@ -28,6 +28,47 @@ function doGet(e) {
     corregirEncabezadosSiFaltan(ss);
     const data = obtenerDatosCompletos(ss);
 
+    // ── Endpoint individual para consulta del alumno ───────────────
+    const params = (e && e.parameter) ? e.parameter : {};
+    if (params.action === 'student_status') {
+      const qDni = String(params.dni || '').replace(/\D/g, '').trim();
+      const student = data.padron.find(s => String(s.dni).replace(/\D/g, '').trim() === qDni);
+
+      // Todas las fechas únicas registradas
+      const fechasSet = {};
+      data.records.forEach(r => { if (r.date) fechasSet[r.date] = true; });
+      const allDates = Object.keys(fechasSet).sort();
+
+      // Fechas en las que asistió el alumno
+      const attendedDatesSet = {};
+      data.records.forEach(r => {
+        if (String(r.dni).replace(/\D/g, '').trim() === qDni && r.date) {
+          attendedDatesSet[r.date] = true;
+        }
+      });
+
+      const totalClasses = allDates.length;
+      const attendedClasses = Object.keys(attendedDatesSet).length;
+      const percentage = totalClasses > 0 ? Math.round((attendedClasses / totalClasses) * 100) : 0;
+      const isRegular = percentage >= 80;
+
+      const history = allDates.map(d => ({
+        date: d,
+        attended: Boolean(attendedDatesSet[d])
+      }));
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'ok',
+        inPadron: Boolean(student),
+        student: student || null,
+        totalClasses: totalClasses,
+        attendedClasses: attendedClasses,
+        percentage: percentage,
+        isRegular: isRegular,
+        history: history
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     // Armar / actualizar matriz en Google Sheets
     try {
       armarMatriz(ss, data.padron, data.records);

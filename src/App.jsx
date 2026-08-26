@@ -506,9 +506,45 @@ function LoginScreen({ onSuccess, onBack }) {
 function AlumnoView({ onBack }) {
   const [rawDni, setRawDni] = useState(() => load('qr_alumno_dni', ''))
   const [downloaded, setDownloaded] = useState(false)
+  const [studentStatus, setStudentStatus] = useState(null)
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const qrRef = useRef(null)
 
   useEffect(() => { save('qr_alumno_dni', rawDni) }, [rawDni])
+
+  // Fetch real-time student attendance status from Google Sheets
+  useEffect(() => {
+    const cleanDni = rawDni.replace(/\D/g, '').trim()
+    if (cleanDni.length < 7 || !SHEETS_URL) {
+      setStudentStatus(null)
+      return
+    }
+
+    let isMounted = true
+    setIsLoadingStatus(true)
+
+    const timer = setTimeout(async () => {
+      try {
+        const sep = SHEETS_URL.includes('?') ? '&' : '?'
+        const res = await fetch(`${SHEETS_URL}${sep}action=student_status&dni=${cleanDni}&_t=${Date.now()}`, { cache: 'no-store' })
+        if (!res.ok) throw new Error('HTTP error')
+        const data = await res.json()
+        if (isMounted && data.status === 'ok') {
+          setStudentStatus(data)
+        }
+      } catch (err) {
+        console.warn('Error fetching student status:', err)
+      } finally {
+        if (isMounted) setIsLoadingStatus(false)
+      }
+    }, 350)
+
+    return () => {
+      isMounted = false
+      clearTimeout(timer)
+    }
+  }, [rawDni])
 
   const handleDownload = async () => {
     const svg = qrRef.current?.querySelector('svg')
@@ -617,55 +653,171 @@ function AlumnoView({ onBack }) {
 
           {/* Student Pass Card */}
           {isValidDni ? (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-6 shadow-2xl space-y-5 text-center">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3 text-[11px] text-zinc-400">
-                <span className="font-semibold text-zinc-300 uppercase tracking-wider">Pase de Asistencia</span>
-                <span className="inline-flex items-center gap-1 text-emerald-400 font-mono font-semibold" role="status">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
-                  Activo
-                </span>
-              </div>
-
-              {/* QR Container with High Contrast */}
-              <div ref={qrRef} className="flex justify-center py-1">
-                <div className="bg-white p-4 rounded-xl shadow-lg inline-block">
-                  <QRCodeSVG value={rawDni} size={200} level="H" includeMargin aria-label={`Código QR para DNI ${rawDni}`} />
+            <>
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/90 p-6 shadow-2xl space-y-5 text-center">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-3 text-[11px] text-zinc-400">
+                  <span className="font-semibold text-zinc-300 uppercase tracking-wider">Pase de Asistencia</span>
+                  <span className="inline-flex items-center gap-1 text-emerald-400 font-mono font-semibold" role="status">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+                    Activo
+                  </span>
                 </div>
-              </div>
 
-              <div className="space-y-1">
-                <div className="text-[11px] text-zinc-400 uppercase tracking-widest font-semibold">Documento</div>
-                <div className="text-xl font-mono font-extrabold text-zinc-100 tracking-wider">
-                  {formatDniDisplay(rawDni)}
+                {/* QR Container with High Contrast */}
+                <div ref={qrRef} className="flex justify-center py-1">
+                  <div className="bg-white p-4 rounded-xl shadow-lg inline-block">
+                    <QRCodeSVG value={rawDni} size={200} level="H" includeMargin aria-label={`Código QR para DNI ${rawDni}`} />
+                  </div>
                 </div>
+
+                <div className="space-y-1">
+                  <div className="text-[11px] text-zinc-400 uppercase tracking-widest font-semibold">Documento</div>
+                  <div className="text-xl font-mono font-extrabold text-zinc-100 tracking-wider">
+                    {formatDniDisplay(rawDni)}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleDownload}
+                  aria-label={`Descargar credencial universitaria en formato PNG para DNI ${rawDni}`}
+                  className={`w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold shadow-lg transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+                    downloaded
+                      ? 'bg-emerald-700 text-white shadow-emerald-700/20'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                  }`}
+                >
+                  {downloaded ? (
+                    <>
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                      <span>¡Pase Descargado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" aria-hidden="true" />
+                      <span>Descargar o Guardar Pase</span>
+                    </>
+                  )}
+                </button>
               </div>
 
-              <button
-                onClick={handleDownload}
-                aria-label={`Descargar credencial universitaria en formato PNG para DNI ${rawDni}`}
-                className={`w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold shadow-lg transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
-                  downloaded
-                    ? 'bg-emerald-700 text-white shadow-emerald-700/20'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
-                }`}
-              >
-                {downloaded ? (
-                  <>
-                    <Check className="h-4 w-4" aria-hidden="true" />
-                    <span>¡Pase Descargado!</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4" aria-hidden="true" />
-                    <span>Descargar o Guardar Pase</span>
-                  </>
-                )}
-              </button>
-            </div>
+              {/* Real-time Student Attendance Status Card */}
+              {SHEETS_URL && (
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 shadow-xl space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+                      <h3 className="text-xs font-bold text-zinc-100 uppercase tracking-wider">Mi Situación Académica</h3>
+                    </div>
+                    {isLoadingStatus && (
+                      <span className="text-[10px] text-zinc-500 font-mono animate-pulse">Consultando...</span>
+                    )}
+                  </div>
+
+                  {studentStatus && studentStatus.totalClasses > 0 ? (
+                    <div className="space-y-3">
+                      {studentStatus.student && (
+                        <div className="text-xs text-zinc-300 font-semibold truncate">
+                          {studentStatus.student.nombre}
+                          {studentStatus.student.libreta && (
+                            <span className="text-zinc-500 font-mono text-[11px] ml-2">({studentStatus.student.libreta})</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 2 Big Stat Cards */}
+                      <div className="grid grid-cols-2 gap-2.5 text-center">
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+                          <div className={`text-2xl font-extrabold font-mono ${studentStatus.isRegular ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {studentStatus.percentage}%
+                          </div>
+                          <div className="text-[10px] text-zinc-400 mt-0.5">Presentismo</div>
+                        </div>
+
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+                          <div className="text-2xl font-extrabold font-mono text-zinc-100">
+                            {studentStatus.attendedClasses}
+                            <span className="text-sm font-normal text-zinc-500">/{studentStatus.totalClasses}</span>
+                          </div>
+                          <div className="text-[10px] text-zinc-400 mt-0.5">Clases Asistidas</div>
+                        </div>
+                      </div>
+
+                      {/* Regularity Badge */}
+                      <div className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border ${
+                        studentStatus.isRegular
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                          : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                      }`}>
+                        {studentStatus.isRegular ? (
+                          <>
+                            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" aria-hidden="true" />
+                            <span>Condición: Regular (≥80% asistencia)</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" aria-hidden="true" />
+                            <span>Condición: En riesgo (&lt;80% asistencia)</span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Expandable History Details */}
+                      {studentStatus.history?.length > 0 && (
+                        <div className="pt-1">
+                          <button
+                            onClick={() => setShowHistory(!showHistory)}
+                            aria-expanded={showHistory}
+                            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-xs text-zinc-300 font-semibold transition-colors"
+                          >
+                            <span>Detalle por clase ({studentStatus.history.length})</span>
+                            <span className="text-xs text-zinc-500 font-mono">{showHistory ? '▲' : '▼'}</span>
+                          </button>
+
+                          {showHistory && (
+                            <div className="mt-2 space-y-1 max-h-[160px] overflow-y-auto pr-1">
+                              {studentStatus.history.map((h, idx) => (
+                                <div
+                                  key={h.date}
+                                  className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-zinc-950/80 border border-zinc-850 text-xs"
+                                >
+                                  <div className="font-mono text-zinc-300">
+                                    <span className="text-zinc-500 font-bold mr-2">C{idx + 1}</span>
+                                    <span>{h.date}</span>
+                                  </div>
+                                  {h.attended ? (
+                                    <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                      ✓ PRESENTE
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-500 border border-zinc-800">
+                                      — AUSENTE
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : isLoadingStatus ? (
+                    <div className="py-4 text-center text-xs text-zinc-500 font-mono">
+                      Cargando datos de presentismo...
+                    </div>
+                  ) : (
+                    <div className="py-2 text-center text-xs text-zinc-500">
+                      {studentStatus?.inPadron === false
+                        ? 'El DNI no figura en el padrón de la materia.'
+                        : 'Aún no hay clases registradas en el sistema.'}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/40 p-8 text-center space-y-2 text-zinc-500">
               <QrCode className="h-10 w-10 mx-auto opacity-30" aria-hidden="true" />
-              <p className="text-xs">Ingresá al menos 7 dígitos para generar tu código QR de asistencia.</p>
+              <p className="text-xs">Ingresá al menos 7 dígitos para generar tu código QR y consultar tu presentismo.</p>
             </div>
           )}
         </div>
