@@ -506,7 +506,7 @@ function AppContent() {
   // ── Role Selection Screen ────────────────────────────────────────
   if (!role) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 overflow-x-hidden">
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 overflow-x-hidden safe-top safe-bottom">
         <div className="w-full max-w-sm space-y-7 text-center">
           {/* Logo Brandmark */}
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl" aria-hidden="true">
@@ -613,7 +613,7 @@ function LoginScreen({ onSuccess, onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 overflow-x-hidden">
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 overflow-x-hidden safe-top safe-bottom">
       <div className={`w-full max-w-sm ${shake ? 'animate-[shake_0.4s_ease-in-out]' : ''}`}>
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-7 shadow-2xl backdrop-blur-md">
           <div className="text-center mb-6">
@@ -816,19 +816,19 @@ function AlumnoView({ onBack }) {
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col text-zinc-100 overflow-x-hidden">
-      {/* Minimal Header */}
-      <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-xl px-4 py-3">
-        <div className="max-w-md mx-auto flex items-center justify-between">
+      {/* Minimal Header with iOS Safe Area support */}
+      <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-xl safe-pt">
+        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between min-h-[52px]">
           <button
             onClick={onBack}
             aria-label="Volver a la selección de roles"
-            className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 transition-colors py-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded cursor-pointer"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-300 hover:text-white transition-colors py-2 px-2.5 -ml-2 rounded-lg hover:bg-zinc-900 active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 cursor-pointer min-h-[44px]"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             <span>Volver</span>
           </button>
           <div className="text-xs font-bold text-zinc-200">Credencial Digital</div>
-          <div className="w-12" />
+          <div className="w-16" />
         </div>
       </header>
 
@@ -1169,8 +1169,8 @@ function ProfesorView({
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col text-zinc-100 overflow-x-hidden">
-      {/* Top Header */}
-      <header className="print-hidden sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-xl">
+      {/* Top Header with iOS Safe Area support */}
+      <header className="print-hidden sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-xl safe-pt">
         <div className="max-w-4xl mx-auto px-4 flex items-center justify-between h-14">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0" aria-hidden="true">
@@ -1282,8 +1282,8 @@ function ProfesorView({
         </div>
       </header>
 
-      {/* Floating Toast Notification with A11y Live Region */}
-      <div className="print-hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md pointer-events-none" aria-live="polite">
+      {/* Floating Toast Notification with A11y Live Region & Safe Margin */}
+      <div className="print-hidden fixed top-[calc(env(safe-area-inset-top,0px)+4.5rem)] left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md pointer-events-none" aria-live="polite">
         {toast && (
           <div className="pointer-events-auto" role="alert">
             <div className={`flex items-center gap-3 rounded-xl px-4 py-3 shadow-2xl border text-xs font-semibold backdrop-blur-xl ${
