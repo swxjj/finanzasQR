@@ -299,7 +299,7 @@ export default function App() {
           </div>
 
           <div>
-            <h1 className="text-2xl font-extrabold text-zinc-100 tracking-tight">QR Asist</h1>
+            <h1 className="text-2xl font-extrabold text-zinc-100 tracking-tight">finanzasQR</h1>
             <p className="text-xs text-zinc-400 mt-1">Control de asistencia ágil y en tiempo real</p>
           </div>
 
@@ -693,7 +693,7 @@ function ProfesorView({
             <div className="h-8 w-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center">
               <QrCode className="h-4 w-4 text-emerald-400" />
             </div>
-            <span className="font-extrabold text-sm text-zinc-100 tracking-tight hidden sm:inline">QR Asist</span>
+            <span className="font-extrabold text-sm text-zinc-100 tracking-tight hidden sm:inline">finanzasQR</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -869,7 +869,7 @@ function ProfesorView({
       </main>
 
       <footer className="print-hidden border-t border-zinc-900 py-3 text-center text-[11px] text-zinc-600 font-mono">
-        QR Asist • Sistema de Control Universitario
+        finanzasQR • Sistema de Control Universitario
       </footer>
     </div>
   )
